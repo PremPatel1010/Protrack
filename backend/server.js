@@ -3,6 +3,7 @@ import cors from 'cors';
 import dotenv from 'dotenv';
 import connectDB from './config/db.js';
 import authRoutes from './routes/authRoute.js';
+import roadmapRoutes from './routes/roadmapRoute.js';
 
 dotenv.config();
 
@@ -17,6 +18,7 @@ connectDB();
 
 // Routes
 app.use('/api/auth', authRoutes);
+app.use('/api/roadmap', roadmapRoutes);
 
 // Basic route for testing
 app.get('/', (req, res) => {
