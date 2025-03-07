@@ -3,34 +3,35 @@ import { body, validationResult } from 'express-validator';
 import { generateDailyRoadmap, parseRoadmapText, processChatbotRequest } from '../services/aiService.js';
 
 export const createRoadmapValidation = [
-  body('goal').notEmpty().withMessage('Goal is required'),
-  body('duration').isInt({ min: 1 }).withMessage('Duration must be a positive integer'),
-  body('startDate').isISO8601().withMessage('Start date must be a valid date (YYYY-MM-DD)'),
   body('category').isIn(['academic', 'long-term', 'personality', 'additional']).withMessage('Invalid category'),
+  body('formData').notEmpty().withMessage('Form data is required'),
+  body('startDate').isISO8601().withMessage('Start date must be a valid date (YYYY-MM-DD)'),
+  body('duration').optional().isInt({ min: 1 }).withMessage('Duration must be a positive integer'),
 ];
 
 export const createRoadmap = async (req, res) => {
   const errors = validationResult(req);
   if (!errors.isEmpty()) return res.status(400).json({ errors: errors.array() });
 
-  const { goal, duration, startDate, category } = req.body;
+  const { category, formData, startDate, duration} = req.body;
 
   try {
-    const aiResponse = await generateDailyRoadmap(goal, duration, startDate, category);
-    const dailyTasks = parseRoadmapText(aiResponse, startDate);
+    const aiRoadmap = await generateDailyRoadmap(category, formData, startDate, duration);
+    console.log(aiRoadmap);
+    const dailyTasks = parseRoadmapText(aiRoadmap, startDate);
 
     const roadmap = new Roadmap({
       userId: req.user.id,
-      title: `${goal} in ${duration} Days`,
-      goal,
+      title: aiRoadmap.title,
+      description: aiRoadmap.description,
       category,
-      duration,
+      totalDays: aiRoadmap.totalDays,
       startDate,
       dailyTasks,
     });
 
     await roadmap.save();
-    res.status(201).json(roadmap);
+    res.status(201).json({ id: roadmap._id, roadmap });
   } catch (err) {
     console.error(err);
     res.status(500).json({ message: 'Server error: ' + err.message });
@@ -38,9 +39,12 @@ export const createRoadmap = async (req, res) => {
 };
 
 export const getRoadmaps = async (req, res) => {
+  const { category } = req.query; // Optional category filter from your GET
   try {
-    const roadmaps = await Roadmap.find({ userId: req.user.id });
-    res.json(roadmaps);
+    const query = { userId: req.user.id };
+    if (category) query.category = category;
+    const roadmaps = await Roadmap.find(query);
+    res.json(roadmaps.map(r => ({ id: r._id, ...r.toObject() })));
   } catch (err) {
     console.error(err);
     res.status(500).json({ message: 'Server error' });
@@ -65,14 +69,14 @@ export const chatbotModify = async (req, res) => {
 
     switch (aiResponse.action) {
       case 'move':
-        const taskToMove = roadmap.dailyTasks.find(t => t.task === aiResponse.task);
+        const taskToMove = roadmap.dailyTasks.find(t => t.title === aiResponse.title);
         if (taskToMove) {
           taskToMove.day = aiResponse.day;
           taskToMove.date = new Date(roadmap.startDate);
           taskToMove.date.setDate(taskToMove.date.getDate() + aiResponse.day - 1);
-          responseMsg = `Moved "${aiResponse.task}" to Day ${aiResponse.day}`;
+          responseMsg = `Moved "${aiResponse.title}" to Day ${aiResponse.day}`;
         } else {
-          responseMsg = `Task "${aiResponse.task}" not found`;
+          responseMsg = `Task "${aiResponse.title}" not found`;
         }
         break;
       case 'add':
@@ -81,23 +85,27 @@ export const chatbotModify = async (req, res) => {
         roadmap.dailyTasks.push({
           day: aiResponse.day,
           date: newDate,
-          task: aiResponse.task,
+          title: aiResponse.title,
+          description: aiResponse.description || 'Added task',
           completed: false,
           reminderSent: false,
         });
-        responseMsg = `Added "${aiResponse.task}" to Day ${aiResponse.day}`;
+        responseMsg = `Added "${aiResponse.title}" to Day ${aiResponse.day}`;
         break;
       case 'delete':
-        roadmap.dailyTasks = roadmap.dailyTasks.filter(t => t.task !== aiResponse.task);
-        responseMsg = `Deleted "${aiResponse.task}"`;
+        roadmap.dailyTasks = roadmap.dailyTasks.filter(t => t.title !== aiResponse.title);
+        responseMsg = `Deleted "${aiResponse.title}"`;
         break;
       case 'regenerate':
-        const newAiResponse = await generateDailyRoadmap(roadmap.goal, roadmap.duration, roadmap.startDate, roadmap.category);
-        roadmap.dailyTasks = parseRoadmapText(newAiResponse, roadmap.startDate);
+        const newAiRoadmap = await generateDailyRoadmap(roadmap.category, { goal: roadmap.title }, roadmap.startDate);
+        roadmap.title = newAiRoadmap.title;
+        roadmap.description = newAiRoadmap.description;
+        roadmap.totalDays = newAiRoadmap.totalDays;
+        roadmap.dailyTasks = parseRoadmapText(newAiRoadmap, roadmap.startDate);
         responseMsg = 'Roadmap regenerated successfully';
         break;
       case 'explain':
-        const explanation = await chatWithAI(`Explain "${aiResponse.task}" in detail for a ${roadmap.category} context.`);
+        const explanation = await chatWithAI(`Explain "${aiResponse.title}" in detail for a ${roadmap.category} context.`);
         responseMsg = explanation;
         break;
       default:

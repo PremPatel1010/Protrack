@@ -1,7 +1,7 @@
 import express from 'express';
 import { createRoadmap, getRoadmaps, chatbotModify, createRoadmapValidation } from '../controllers/roadmapController.js';
 import authMiddleware from '../middleware/auth.js';
-import { body, validationResult } from 'express-validator';
+import { body } from 'express-validator';
 
 const router = express.Router();
 
@@ -11,7 +11,7 @@ const router = express.Router();
 router.post('/create', authMiddleware, createRoadmapValidation, createRoadmap);
 
 // @route   GET /api/roadmap
-// @desc    Get all roadmaps for the user
+// @desc    Get all roadmaps for the user (optional category filter)
 // @access  Private
 router.get('/', authMiddleware, getRoadmaps);
 
