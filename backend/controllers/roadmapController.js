@@ -6,17 +6,17 @@ export const createRoadmapValidation = [
   body('category').isIn(['academic', 'long-term', 'personality', 'additional']).withMessage('Invalid category'),
   body('formData').notEmpty().withMessage('Form data is required'),
   body('startDate').isISO8601().withMessage('Start date must be a valid date (YYYY-MM-DD)'),
-  body('duration').optional().isInt({ min: 1 }).withMessage('Duration must be a positive integer'),
+  body('totalDays').optional().isInt({ min: 1 }).withMessage('Duration must be a positive integer'),
 ];
 
 export const createRoadmap = async (req, res) => {
   const errors = validationResult(req);
   if (!errors.isEmpty()) return res.status(400).json({ errors: errors.array() });
 
-  const { category, formData, startDate, duration} = req.body;
+  const { category, formData, startDate, totalDays} = req.body;
 
   try {
-    const aiRoadmap = await generateDailyRoadmap(category, formData, startDate, duration);
+    const aiRoadmap = await generateDailyRoadmap(category, formData, startDate, totalDays);
     console.log(aiRoadmap);
     const dailyTasks = parseRoadmapText(aiRoadmap, startDate);
 

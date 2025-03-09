@@ -1,32 +1,49 @@
+import {configDotenv} from 'dotenv';
 import { GoogleGenerativeAI } from '@google/generative-ai';
-import { configDotenv } from 'dotenv';
 
 configDotenv();
+
 const genAI = new GoogleGenerativeAI(process.env.GOOGLE_GEMINI_KEY);
 const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' });
 
-export const generateDailyRoadmap = async (category, formData, startDate, duration) => {
-   // Reduced from 30 to 15 to avoid token limit issues
-  const prompt = `
-You are an expert educational planner and coach with extensive experience in creating structured, practical learning roadmaps. Your task is to generate a detailed roadmap based on the provided category and form data. Follow these instructions carefully to ensure accuracy and consistency:
+export const generateDailyRoadmap = async (category, formData, startDate, totalDays) => {
+  const chunkSize = 100; // Generate 100 days at a time
+  const chunks = Math.ceil(totalDays / chunkSize);
+  let allTasks = [];
+  let roadmapTitle = '';
+  let roadmapDescription = '';
+
+  // Generate roadmap in chunks
+  for (let i = 0; i < chunks; i++) {
+    const startDay = i * chunkSize + 1;
+    const endDay = Math.min((i + 1) * chunkSize, totalDays);
+    const daysInChunk = endDay - startDay + 1;
+
+    const prompt = `
+You are an expert educational planner and coach with extensive experience in creating structured, practical learning roadmaps. Your task is to generate a partial roadmap for days ${startDay} to ${endDay} of a ${totalDays}-days plan based on the provided category and form data. Follow these instructions carefully:
 
 Instructions:
 1. **Input Interpretation**:
    - Category: One of "academic", "long-term", "personality", or "additional".
    - Form Data: A JSON object with goal-specific details (e.g., subject, exam date, current level).
-   - Start Date: The date the roadmap begins (ISO format, e.g., "2025-03-06").
+   - Start Date: The roadmap begins on "${startDate}" (ISO format).
+   - Total Duration: ${totalDays} days.
+   - Generate tasks for days ${startDay} to ${endDay} only.
 2. **Output Requirements**:
-   - Generate a roadmap with exactly ${duration} daily tasks.
-   - Each task must have a unique "title" (short, descriptive, max 10 words) and "description" (detailed, actionable, max 30 words).
-   - Return the response as a valid JSON object **with no extra text, greetings, or explanations outside the JSON structure**.
+   - Generate exactly ${daysInChunk} daily tasks for days ${startDay} to ${endDay}.
+   - Don't try to cover all syallabus from the start to end day, just cover the ${daysInChunk} days.
+   - Spread the syllabus evenly across the full ${totalDays} days.
+   - Each task must have a unique "title" (short, max 10 words) and "description" (actionable, max 30 words).
+   - Distribute the syllabus evenly across the full ${totalDays} days
+   - Return a valid JSON object **with no extra text, greetings, markdown (e.g., \`\`\`json), or explanations outside the JSON structure**.
    - Structure:
      {
-       "title": "Roadmap Title based on category and form data",
+       "title": "Roadmap Title for ${totalDays}-day Plan",
        "description": "A concise summary of the roadmap's purpose and scope",
-       "totalDays": ${duration},
+       "totalDays": ${daysInChunk},
        "tasks": [
          {
-           "day": 1,
+           "day": ${startDay},
            "title": "Task Title",
            "description": "Detailed, actionable description of the task"
          },
@@ -34,25 +51,27 @@ Instructions:
        ]
      }
 3. **Rules**:
-   - Output **only valid JSON**—do not prepend or append any text like "Hello", "Here is your roadmap", or markdown (e.g., ).
-   - Ensure "day" numbers are sequential (1 to ${duration}).
-   - Tailor tasks to the category and form data (e.g., academic tasks for exams, personality tasks for self-improvement).
-   - Keep descriptions concise to avoid exceeding output limits.
+   - Output **only valid JSON**—no markdown, comments, or extra text.
+   - Ensure "day" numbers are sequential from ${startDay} to ${endDay}.
+   - Spread the chapters across ${totalDays} days, avoiding completion before the end.
+   - Tailor tasks to the category and form data, progressing logically from previous days if applicable.
+   - Keep descriptions concise to ensure all tasks are generated.
 
-Example Input:
+Example Input (for days 1-5 of a 15-day plan):
 Category: "academic"
 Form Data: {
   "subject": "Chemistry",
   "examDate": "2025-06-15",
-  "currentLevel": "Beginner"
+  "currentLevel": "Beginner",
+  "totalDays": 15
 }
 Start Date: "2025-03-06"
 
 Example Output:
 {
   "title": "Chemistry Exam Preparation Roadmap",
-  "description": "A ${duration}-day roadmap to build beginner Chemistry skills for June 15, 2025 exam.",
-  "totalDays": ${duration},
+  "description": "A 5-day segment to build beginner Chemistry skills for June 15, 2025 exam.",
+  "totalDays": 5,
   "tasks": [
     {
       "day": 1,
@@ -65,53 +84,59 @@ Example Output:
       "description": "Explore ionic and covalent bonding with water and salt examples."
     },
     {
-      "day": 3,
-      "title": "Practice Periodic Table",
-      "description": "Memorize first 20 elements and their properties."
-    },
-    {
-      "day": ${duration},
-      "title": "Full Exam Simulation",
-      "description": "Complete a timed practice exam covering all topics."
+      "day": 5,
+      "title": "Practice Element Properties",
+      "description": "Review properties of first 10 periodic table elements."
     }
   ]
 }
 
-Now, generate a roadmap for:
+Now, generate a roadmap segment for days ${startDay} to ${endDay} of a ${totalDays}-day plan for:
 Category: "${category}"
 Form Data: ${JSON.stringify(formData, null, 2)}
 Start Date: "${startDate}"
 `;
 
-  try {
-    const result = await model.generateContent(prompt);
-    let roadmapText = result.response.text();
-
-    // Log raw response for debugging
-    console.log('Raw Gemini response:', roadmapText);
-
-    // Fallback: Extract JSON if extra text is present
-    const jsonMatch = roadmapText.match(/{[\s\S]*}/);
-    if (!jsonMatch) {
-      throw new Error('No valid JSON found in Gemini response');
-    }
-    roadmapText = jsonMatch[0];
-
-    // Attempt to parse JSON, repair if necessary
     try {
-      return JSON.parse(roadmapText);
-    } catch (parseErr) {
-      // Basic JSON repair: Add missing commas or close arrays
-      let repairedText = roadmapText.trim();
-      if (!repairedText.endsWith(']')) {
-        repairedText = repairedText.replace(/,\s*$/, '') + ']'; // Fix trailing comma and close tasks array
-        repairedText = repairedText.replace(/}\s*$/, '}}'); // Ensure object closure
+      const result = await model.generateContentStream(prompt);
+      let fullText = '';
+
+      // Collect chunks from the async iterable
+      for await (const chunk of result.stream) {
+        fullText += chunk.text();
       }
-      return JSON.parse(repairedText);
+
+      // Log raw response for debugging
+      console.log(`Raw Gemini response for days ${startDay}-${endDay}:`, fullText);
+
+      // Clean the response: Extract JSON
+      const jsonMatch = fullText.match(/{[\s\S]*}/);
+      if (!jsonMatch) {
+        throw new Error(`No valid JSON found in Gemini response for days ${startDay}-${endDay}`);
+      }
+      const cleanedText = jsonMatch[0];
+      const chunkData = JSON.parse(cleanedText);
+
+      // Store title and description from the first chunk
+      if (i === 0) {
+        roadmapTitle = chunkData.title;
+        roadmapDescription = chunkData.description.replace(/\d+-day segment/, `${totalDays}-day roadmap`);
+      }
+
+      // Add tasks to the full list
+      allTasks = allTasks.concat(chunkData.tasks);
+    } catch (err) {
+      throw new Error(`Failed to generate roadmap segment for days ${startDay}-${endDay}: ` + err.message);
     }
-  } catch (err) {
-    throw new Error('Gemini roadmap generation failed: ' + err.message);
   }
+
+  // Return the merged roadmap
+  return {
+    title: roadmapTitle,
+    description: roadmapDescription,
+    totalDays,
+    tasks: allTasks,
+  };
 };
 
 export const parseRoadmapText = (roadmap, startDate) => {
@@ -170,25 +195,12 @@ User Request: "${userRequest}"
 
   try {
     const result = await model.generateContent(prompt);
-    let resultText = result.response.text();
-
-    // Fallback: Extract JSON if extra text is present
+    const resultText = result.response.text();
     const jsonMatch = resultText.match(/{[\s\S]*}/);
     if (!jsonMatch) {
       throw new Error('No valid JSON found in Gemini response');
     }
-    resultText = jsonMatch[0];
-
-    // Attempt to parse JSON, repair if necessary
-    try {
-      return JSON.parse(resultText);
-    } catch (parseErr) {
-      let repairedText = resultText.trim();
-      if (!repairedText.endsWith('}')) {
-        repairedText += '}';
-      }
-      return JSON.parse(repairedText);
-    }
+    return JSON.parse(jsonMatch[0]);
   } catch (err) {
     throw new Error('Gemini chatbot request processing failed: ' + err.message);
   }
