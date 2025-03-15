@@ -1,12 +1,14 @@
 import React from 'react';
 import { motion } from 'framer-motion';
-import { ArrowRight, Target, Trophy, Brain, Rocket, Star, BookOpen } from 'lucide-react';
+import { ArrowRight, Target, Trophy, Brain, Rocket, Star, BookOpen,  } from 'lucide-react';
+import { Link } from 'react-router-dom';
+import HomePage from './HomePage';
 
 function App() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-purple-50 via-indigo-50 to-blue-50">
       {/* Navigation */}
-      <nav className="container mx-auto px-8 py-6">
+      <nav className="container mx-auto px-4 py-2">
         <motion.div 
           initial={{ y: -20, opacity: 0 }}
           animate={{ y: 0, opacity: 1 }}
@@ -14,10 +16,10 @@ function App() {
           className="flex items-center justify-between"
         >
           <div className="flex items-center space-x-3">
-            <Target className="h-8 w-8 text-indigo-600" />
-            <span className="text-2xl font-bold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">
+            {/* <Target className="h-8 w-8 text-indigo-600" /> */}
+            {/* <span className="text-2xl font-bold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">
               ProTrack
-            </span>
+            </span> */}
           </div>
         </motion.div>
       </nav>
@@ -48,10 +50,10 @@ function App() {
               className="flex flex-col sm:flex-row gap-6"
               whileHover={{ scale: 1.03 }}
             >
-              <button className="group inline-flex items-center justify-center px-10 py-4 text-lg font-semibold rounded-xl text-white bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 transform transition-all duration-300 shadow-lg hover:shadow-xl">
+              <Link to={'/signup'} className="group inline-flex items-center justify-center px-10 py-4 text-lg font-semibold rounded-xl text-white bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 transform transition-all duration-300 shadow-lg hover:shadow-xl">
                 Begin Your Journey
                 <ArrowRight className="ml-3 h-5 w-5 group-hover:translate-x-1 transition-transform" />
-              </button>
+              </Link>
             </motion.div>
 
             <div className="grid grid-cols-2 gap-8 pt-6">
