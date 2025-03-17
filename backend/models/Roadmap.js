@@ -21,7 +21,10 @@ const roadmapSchema = new Schema({
     reminderSent: { type: Boolean, default: false },
   }],
   chatbotHistory: [{
-    request: { type: String, required: true },
+    request: {
+      action: { type: String, required: true },
+      data: { type: Object, required: false, default: {} } 
+    },
     response: { type: String, required: true },
     timestamp: { type: Date, default: Date.now },
   }],

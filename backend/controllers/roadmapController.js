@@ -1,25 +1,25 @@
 import Roadmap from '../models/Roadmap.js';
 import { body, validationResult } from 'express-validator';
-import { generateDailyRoadmap, parseRoadmapText, processChatbotRequest } from '../services/aiService.js';
+import { chatWithAI, generateDailyRoadmap, parseRoadmapText, processChatbotRequest } from '../services/aiService.js';
 
 export const createRoadmapValidation = [
   body('category').isIn(['academic', 'long-term', 'personality', 'additional']).withMessage('Invalid category'),
   body('formData').notEmpty().withMessage('Form data is required'),
   body('startDate').isISO8601().withMessage('Start date must be a valid date (YYYY-MM-DD)'),
-  body('totalDays').optional().isInt({ min: 1 }).withMessage('Duration must be a positive integer'),
 ];
 
 export const createRoadmap = async (req, res) => {
-  const errors = validationResult(req);
-  if (!errors.isEmpty()) return res.status(400).json({ errors: errors.array() });
 
-  const { category, formData, startDate, totalDays} = req.body;
+  const { category, formData, startDate} = req.body;
 
   try {
-    const aiRoadmap = await generateDailyRoadmap(category, formData, startDate, totalDays);
+    console.log("Code is running")
+    const aiRoadmap = await generateDailyRoadmap(category, formData, startDate);
+    console.log("Code is running")
     console.log(aiRoadmap);
     const dailyTasks = parseRoadmapText(aiRoadmap, startDate);
 
+    console.log("Code is running")
     const roadmap = new Roadmap({
       userId: req.user.id,
       title: aiRoadmap.title,
@@ -55,7 +55,7 @@ export const chatbotModify = async (req, res) => {
   const errors = validationResult(req);
   if (!errors.isEmpty()) return res.status(400).json({ errors: errors.array() });
 
-  const { request } = req.body;
+  let { action, data = {} } = req.body; // Default data to empty object if not provided
   const roadmapId = req.params.id;
 
   try {
@@ -64,56 +64,110 @@ export const chatbotModify = async (req, res) => {
       return res.status(404).json({ message: 'Roadmap not found' });
     }
 
-    const aiResponse = await processChatbotRequest(request, roadmap);
-    let responseMsg = '';
+    // If action is missing, return an error
+    if (!action || typeof action !== 'string') {
+      return res.status(400).json({ message: 'Action is required and must be a string' });
+    }
 
-    switch (aiResponse.action) {
-      case 'move':
-        const taskToMove = roadmap.dailyTasks.find(t => t.title === aiResponse.title);
-        if (taskToMove) {
-          taskToMove.day = aiResponse.day;
-          taskToMove.date = new Date(roadmap.startDate);
-          taskToMove.date.setDate(taskToMove.date.getDate() + aiResponse.day - 1);
-          responseMsg = `Moved "${aiResponse.title}" to Day ${aiResponse.day}`;
-        } else {
-          responseMsg = `Task "${aiResponse.title}" not found`;
-        }
-        break;
-      case 'add':
-        const newDate = new Date(roadmap.startDate);
-        newDate.setDate(newDate.getDate() + aiResponse.day - 1);
-        roadmap.dailyTasks.push({
-          day: aiResponse.day,
-          date: newDate,
-          title: aiResponse.title,
-          description: aiResponse.description || 'Added task',
-          completed: false,
-          reminderSent: false,
-        });
-        responseMsg = `Added "${aiResponse.title}" to Day ${aiResponse.day}`;
-        break;
-      case 'delete':
-        roadmap.dailyTasks = roadmap.dailyTasks.filter(t => t.title !== aiResponse.title);
-        responseMsg = `Deleted "${aiResponse.title}"`;
-        break;
-      case 'regenerate':
-        const newAiRoadmap = await generateDailyRoadmap(roadmap.category, { goal: roadmap.title }, roadmap.startDate);
-        roadmap.title = newAiRoadmap.title;
-        roadmap.description = newAiRoadmap.description;
-        roadmap.totalDays = newAiRoadmap.totalDays;
-        roadmap.dailyTasks = parseRoadmapText(newAiRoadmap, roadmap.startDate);
-        responseMsg = 'Roadmap regenerated successfully';
-        break;
-      case 'explain':
-        const explanation = await chatWithAI(`Explain "${aiResponse.title}" in detail for a ${roadmap.category} context.`);
-        responseMsg = explanation;
-        break;
-      default:
-        responseMsg = 'Invalid request';
+    let responseMsg = '';
+    const allowedActions = ['add', 'edit', 'delete', 'regenerate', 'explain'];
+    const lowercaseAction = action.toLowerCase();
+
+    if (allowedActions.includes(lowercaseAction)) {
+      switch (lowercaseAction) {
+        case 'add':
+          if (!data?.title || !data?.day) {
+            return res.status(400).json({ message: 'Title and day are required for add action' });
+          }
+          const newDate = new Date(roadmap.startDate);
+          newDate.setDate(newDate.getDate() + data.day - 1);
+          roadmap.dailyTasks.push({
+            day: data.day,
+            date: newDate,
+            title: data.title,
+            description: data.description || 'Added task',
+            completed: false,
+            reminderSent: false,
+          });
+          responseMsg = `Added "${data.title}" to Day ${data.day}`;
+          break;
+
+        case 'edit':
+          if (!data?.title || !data?.newTitle) {
+            return res.status(400).json({ message: 'Current title and new title are required for edit action' });
+          }
+          const taskToEdit = roadmap.dailyTasks.find(t => t.title === data.title);
+          if (taskToEdit) {
+            const originalTitle = taskToEdit.title;
+            taskToEdit.title = data.newTitle;
+            if (data.day) {
+              taskToEdit.day = data.day;
+              taskToEdit.date = new Date(roadmap.startDate);
+              taskToEdit.date.setDate(taskToEdit.date.getDate() + data.day - 1);
+            }
+            if (data.description) taskToEdit.description = data.description;
+            responseMsg = `Edited task title from "${originalTitle}" to "${data.newTitle}"`;
+          } else {
+            responseMsg = `Task "${data.title}" not found`;
+          }
+          break;
+
+        case 'delete':
+          if (!data?.title) {
+            return res.status(400).json({ message: 'Title is required for delete action' });
+          }
+          const initialLength = roadmap.dailyTasks.length;
+          roadmap.dailyTasks = roadmap.dailyTasks.filter(t => t.title !== data.title);
+          responseMsg = roadmap.dailyTasks.length < initialLength 
+            ? `Deleted "${data.title}"`
+            : `Task "${data.title}" not found`;
+          break;
+
+        case 'regenerate':
+          if (!data?.customization) {
+            return res.status(400).json({ message: 'Customization message is required for regenerate action' });
+          }
+          const newAiRoadmap = await generateDailyRoadmap(roadmap.category, { goal: roadmap.title, customization: data.customization }, roadmap.startDate, roadmap.totalDays);
+          roadmap.title = newAiRoadmap.title;
+          roadmap.description = newAiRoadmap.description;
+          roadmap.totalDays = newAiRoadmap.totalDays;
+          roadmap.dailyTasks = parseRoadmapText(newAiRoadmap, roadmap.startDate);
+          responseMsg = 'Roadmap regenerated successfully with customization';
+          break;
+
+        case 'explain':
+          if (!data?.title) {
+            return res.status(400).json({ message: 'Title is required for explain action' });
+          }
+          const explanation = await chatWithAI(
+            `Explain "${data.title}" in detail for a ${roadmap.category} context.`,
+            roadmap.category
+          );
+          console.log(explanation);
+          responseMsg = explanation;
+          
+          break;
+      }
+    } else {
+      const aiResponse = await processChatbotRequest(
+        `Action: ${action}\nContext: ${JSON.stringify(data)}`,
+        roadmap
+      );
+      responseMsg = aiResponse.message || 'Custom action processed';
+      if (aiResponse.modifications) {
+        Object.assign(roadmap, aiResponse.modifications);
+      }
     }
 
     roadmap.dailyTasks.sort((a, b) => a.day - b.day);
-    roadmap.chatbotHistory.push({ request, response: responseMsg });
+    console.log(data)
+    roadmap.chatbotHistory.push({ 
+      request: { 
+        action: lowercaseAction, 
+        data: data || {} // Ensure data is always an object
+      }, 
+      response: responseMsg 
+    });
     await roadmap.save();
 
     res.json({ roadmap, message: responseMsg });
