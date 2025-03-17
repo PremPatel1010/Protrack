@@ -163,9 +163,396 @@ Now, generate a roadmap segment for days ${startDay} to ${endDay}:
       totalDays,
       tasks: allTasks,
     };
-  } else {
-    throw new Error(`Category "${category}" is not yet supported`);
+  } else if (category === 'personality') {
+    const { goalType, specificGoals, duration, currentLevel, frequency } = formData;
+    const totalDays = duration;
+    const chunks = Math.ceil(totalDays / chunkSize);
+    const goalsCount = specificGoals.length;
+    const goalsPerDay = goalsCount / totalDays;
+
+    for (let i = 0; i < chunks; i++) {
+      const startDay = i * chunkSize + 1;
+      const endDay = Math.min((i + 1) * chunkSize, totalDays);
+      const daysInChunk = endDay - startDay + 1;
+      const startGoalIndex = Math.floor((startDay - 1) * goalsPerDay);
+      const endGoalIndex = Math.min(Math.floor(endDay * goalsPerDay), goalsCount);
+
+      const prompt = `
+You are an expert personal development coach. Generate a partial roadmap for days ${startDay} to ${endDay} of a ${totalDays}-day personality development plan, focusing on ${goalType}. Follow these instructions:
+
+Instructions:
+1. **Input**:
+   - Category: "${category}"
+   - Goal Type: "${goalType}"
+   - Specific Goals: ${JSON.stringify(specificGoals, null, 2)}
+   - Duration: ${totalDays} days
+   - Current Level: "${currentLevel}"
+   - Frequency: "${frequency}"
+   - Start Date: "${startDate}"
+   - Generate tasks for days ${startDay} to ${endDay} only
+2. **Output**:
+   - Generate ${daysInChunk} tasks for days ${startDay} to ${endDay}.
+   - Each task has a "title" (max 10 words) and "description" (max 150 words).
+   - Distribute ${goalsCount} specific goals over ${totalDays} days (~${goalsPerDay.toFixed(2)} goals/day).
+   - For this chunk, focus on goals ${startGoalIndex + 1} to ${endGoalIndex} if applicable, or cycle through all goals.
+   - Tailor tasks to ${currentLevel} and repeat practice based on ${frequency}.
+   - Include a mix of new skill development and reinforcement tasks.
+   - Return valid JSON **with no extra text, markdown, or explanations**.
+   - Structure:
+     {
+       "title": "${goalType} Development Roadmap",
+       "description": "A ${totalDays}-day plan to improve ${goalType.toLowerCase()} skills",
+       "totalDays": ${daysInChunk},
+       "tasks": [
+         {
+           "day": ${startDay},
+           "title": "Task Title",
+           "description": "Detailed, actionable description"
+         },
+         ...
+       ]
+     }
+3. **Rules**:
+   - Output **only valid JSON**.
+   - Days are sequential from ${startDay} to ${endDay}.
+   - Spread goals evenly, avoiding early completion.
+   - Adjust task frequency (daily, weekly, biweekly) as specified.
+
+Now, generate a roadmap segment for days ${startDay} to ${endDay}:
+`;
+
+      const result = await model.generateContentStream(prompt);
+      let fullText = '';
+      for await (const chunk of result.stream) {
+        fullText += chunk.text();
+      }
+      console.log(`Raw Gemini response for days ${startDay}-${endDay}:`, fullText);
+      const jsonMatch = fullText.match(/{[\s\S]*}/);
+      if (!jsonMatch) throw new Error(`No valid JSON for days ${startDay}-${endDay}`);
+      const chunkData = JSON.parse(jsonMatch[0]);
+
+      if (i === 0) {
+        roadmapTitle = chunkData.title;
+        roadmapDescription = chunkData.description;
+      }
+      allTasks = allTasks.concat(chunkData.tasks);
+    }
+
+    return {
+      title: roadmapTitle,
+      description: roadmapDescription,
+      totalDays,
+      tasks: allTasks,
+    };
+  } else if (category === 'long-term') {
+    const { goalCategory, mainGoal, milestones, duration, currentLevel, frequency = 'Monthly' } = formData;
+    const totalDays = duration;
+    const chunkSize = 100; // Still chunking by days for processing, but tasks are biweekly/monthly
+    const milestoneCount = milestones.length;
+    const milestonesPerDay = milestoneCount / totalDays;
+
+    // Determine task frequency in days
+    const daysPerTask = frequency === 'Biweekly' ? 14 : 30; // Biweekly: 14 days, Monthly: 30 days
+    const totalTasks = Math.ceil(totalDays / daysPerTask); // Total tasks based on frequency
+    const chunks = Math.ceil(totalDays / chunkSize);
+    let allTasks = [];
+    let roadmapTitle = '';
+    let roadmapDescription = '';
+
+    // Validate input
+    if (!milestones || !Array.isArray(milestones) || milestones.length === 0) {
+      throw new Error('Milestones are missing or invalid');
+    }
+
+    for (let i = 0; i < chunks; i++) {
+      console.log(`Generating chunk ${i + 1} for long-term goal...`);
+      const startDay = i * chunkSize + 1;
+      const endDay = Math.min((i + 1) * chunkSize, totalDays);
+      const startTaskIndex = Math.floor((startDay - 1) / daysPerTask);
+      const endTaskIndex = Math.min(Math.floor(endDay / daysPerTask), totalTasks - 1);
+      const tasksInChunk = endTaskIndex - startTaskIndex + 1;
+
+      const prompt = `
+You are an expert goal-setting coach. Generate a partial roadmap for a ${totalDays}-day long-term goal plan, focusing on ${goalCategory}, with tasks assigned ${frequency.toLowerCase()}. Follow these instructions:
+
+Instructions:
+1. **Input**:
+   - Category: "${category}"
+   - Goal Category: "${goalCategory}"
+   - Main Goal: "${mainGoal}"
+   - Milestones: ${JSON.stringify(milestones, null, 2)}
+   - Duration: ${totalDays} days
+   - Current Level: "${currentLevel}"
+   - Total Milestones: ${milestoneCount}
+   - Milestones per Day: ${milestonesPerDay.toFixed(2)}
+   - Frequency: "${frequency}" (${daysPerTask} days per task)
+   - Total Tasks: ${totalTasks}
+   - Start Date: "${startDate}"
+   - Generate tasks for days ${startDay} to ${endDay} only, assigning tasks every ${daysPerTask} days (chunk covers ${tasksInChunk} tasks)
+2. **Output**:
+   - Generate exactly ${tasksInChunk} tasks, each assigned to a day that aligns with the ${frequency.toLowerCase()} schedule (e.g., day ${startDay}, day ${startDay + daysPerTask}, etc.).
+   - Each task must have a "title" (max 10 words) and "description" (max 30 words).
+   - Distribute ${milestoneCount} milestones over ${totalTasks} tasks (~${(milestoneCount / totalTasks).toFixed(2)} milestones/task), focusing on milestones ${startTaskIndex + 1} to ${endTaskIndex + 1} if applicable, or cycle through all milestones if the chunk exceeds milestone count.
+   - Tailor tasks to ${currentLevel}, progressing logically toward "${mainGoal}".
+   - Include a mix of milestone-related tasks (e.g., "Work on Milestone X") and preparatory/reinforcement activities (e.g., "Prepare for Milestone X").
+   - Return valid JSON **with no extra text, markdown, or explanations**.
+   - Structure:
+     {
+       "title": "${goalCategory} Long-Term Goal Roadmap",
+       "description": "A ${totalDays}-day plan with ${frequency.toLowerCase()} tasks to achieve ${mainGoal.toLowerCase()}",
+       "totalDays": ${tasksInChunk},
+       "tasks": [
+         {
+           "day": <calculated day>,
+           "title": "Task Title",
+           "description": "Detailed, actionable description"
+         },
+         ...
+       ]
+     }
+3. **Rules**:
+   - Output **only valid JSON**.
+   - Assign tasks sequentially every ${daysPerTask} days, starting from day ${startDay} (e.g., ${startDay}, ${startDay + daysPerTask}, ...).
+   - Avoid completing all milestones before the last task on day ${totalDays - (totalDays % daysPerTask) || totalDays}.
+   - Spread milestones evenly across tasks, supplementing with preparatory or practice tasks if needed.
+   - Tailor tasks to ${currentLevel} and ensure logical progression.
+
+Example Input (for days 1-60 of a 365-day plan, Monthly):
+Category: "long-term"
+Form Data: {
+  "goalCategory": "Career",
+  "mainGoal": "Become a Software Engineer",
+  "milestones": ["Learn Python", "Build a Project", "Get a Job"],
+  "duration": 365,
+  "currentLevel": "Beginner",
+  "frequency": "Monthly"
+}
+Start Date: "2025-03-06"
+
+Example Output:
+{
+  "title": "Career Long-Term Goal Roadmap",
+  "description": "A 365-day plan with monthly tasks to achieve become a software engineer",
+  "totalDays": 2,
+  "tasks": [
+    {
+      "day": 1,
+      "title": "Start Milestone 1: Learn Python",
+      "description": "Install Python and study basic syntax this month."
+    },
+    {
+      "day": 31,
+      "title": "Practice Python Fundamentals",
+      "description": "Complete exercises on loops and functions."
+    }
+  ]
+}
+
+Now, generate a roadmap segment for days ${startDay} to ${endDay}:
+`;
+
+      try {
+        const result = await model.generateContentStream(prompt);
+        let fullText = '';
+        for await (const chunk of result.stream) {
+          fullText += chunk.text();
+        }
+        console.log(`Raw Gemini response for days ${startDay}-${endDay}:`, fullText);
+
+        const jsonMatch = fullText.match(/{[\s\S]*}/);
+        if (!jsonMatch) {
+          throw new Error(`No valid JSON found in response for days ${startDay}-${endDay}`);
+        }
+        const chunkData = JSON.parse(jsonMatch[0]);
+
+        // Validate chunk data
+        if (!chunkData.tasks || chunkData.tasks.length !== tasksInChunk) {
+          throw new Error(`Invalid task count for days ${startDay}-${endDay}: expected ${tasksInChunk}, got ${chunkData.tasks?.length || 0}`);
+        }
+
+        if (i === 0) {
+          roadmapTitle = chunkData.title;
+          roadmapDescription = chunkData.description;
+        }
+        allTasks = allTasks.concat(chunkData.tasks);
+      } catch (err) {
+        console.error(`Error generating chunk for days ${startDay}-${endDay}:`, err.message);
+        throw new Error(`Failed to generate long-term roadmap segment: ${err.message}`);
+      }
+    }
+
+    return {
+      title: roadmapTitle,
+      description: roadmapDescription,
+      totalDays, // Total days of the roadmap, not tasks
+      tasks: allTasks,
+    };
+  } else if (category === 'long-term') {
+    const { goalCategory, mainGoal, milestones, duration, currentLevel } = formData;
+    const totalDays = duration;
+    const chunks = Math.ceil(totalDays / chunkSize);
+    const milestoneCount = milestones.length;
+    const milestonesPerDay = milestoneCount / totalDays;
+
+    for (let i = 0; i < chunks; i++) {
+      const startDay = i * chunkSize + 1;
+      const endDay = Math.min((i + 1) * chunkSize, totalDays);
+      const daysInChunk = endDay - startDay + 1;
+      const startMilestoneIndex = Math.floor((startDay - 1) * milestonesPerDay);
+      const endMilestoneIndex = Math.min(Math.floor(endDay * milestonesPerDay), milestoneCount);
+
+      const prompt = `
+You are an expert goal-setting coach. Generate a partial roadmap for days ${startDay} to ${endDay} of a ${totalDays}-day long-term goal plan, focusing on ${goalCategory}. Follow these instructions:
+
+Instructions:
+1. **Input**:
+   - Category: "${category}"
+   - Goal Category: "${goalCategory}"
+   - Main Goal: "${mainGoal}"
+   - Milestones: ${JSON.stringify(milestones, null, 2)}
+   - Duration: ${totalDays} days
+   - Current Level: "${currentLevel}"
+   - Start Date: "${startDate}"
+   - Generate tasks for days ${startDay} to ${endDay} only
+2. **Output**:
+   - Generate ${daysInChunk} tasks for days ${startDay} to ${endDay}.
+   - Each task has a "title" (max 10 words) and "description" (max 30 words).
+   - Distribute ${milestoneCount} milestones over ${totalDays} days (~${milestonesPerDay.toFixed(2)} milestones/day).
+   - For this chunk, focus on milestones ${startMilestoneIndex + 1} to ${endMilestoneIndex} if applicable, or cycle through all milestones.
+   - Tailor tasks to ${currentLevel}, progressing toward "${mainGoal}".
+   - Include a mix of milestone-related tasks and preparatory/reinforcement activities.
+   - Return valid JSON **with no extra text, markdown, or explanations**.
+   - Structure:
+     {
+       "title": "${goalCategory} Long-Term Goal Roadmap",
+       "description": "A ${totalDays}-day plan to achieve ${mainGoal.toLowerCase()}",
+       "totalDays": ${daysInChunk},
+       "tasks": [
+         {
+           "day": ${startDay},
+           "title": "Task Title",
+           "description": "Detailed, actionable description"
+         },
+         ...
+       ]
+     }
+3. **Rules**:
+   - Output **only valid JSON**.
+   - Days are sequential from ${startDay} to ${endDay}.
+   - Spread milestones evenly, avoiding early completion.
+   - Include preparatory and reinforcement tasks.
+
+Now, generate a roadmap segment for days ${startDay} to ${endDay}:
+`;
+
+      const result = await model.generateContentStream(prompt);
+      let fullText = '';
+      for await (const chunk of result.stream) {
+        fullText += chunk.text();
+      }
+      console.log(`Raw Gemini response for days ${startDay}-${endDay}:`, fullText);
+      const jsonMatch = fullText.match(/{[\s\S]*}/);
+      if (!jsonMatch) throw new Error(`No valid JSON for days ${startDay}-${endDay}`);
+      const chunkData = JSON.parse(jsonMatch[0]);
+
+      if (i === 0) {
+        roadmapTitle = chunkData.title;
+        roadmapDescription = chunkData.description;
+      }
+      allTasks = allTasks.concat(chunkData.tasks);
+    }
+
+    return {
+      title: roadmapTitle,
+      description: roadmapDescription,
+      totalDays,
+      tasks: allTasks,
+    };
+  } else if (category === 'additional') {
+    const { skillCategory, specificSkill, subSkills, duration, currentLevel, practiceFrequency } = formData;
+    const totalDays = duration;
+    const chunks = Math.ceil(totalDays / chunkSize);
+    const subSkillCount = subSkills.length;
+    const subSkillsPerDay = subSkillCount / totalDays;
+
+    for (let i = 0; i < chunks; i++) {
+      const startDay = i * chunkSize + 1;
+      const endDay = Math.min((i + 1) * chunkSize, totalDays);
+      const daysInChunk = endDay - startDay + 1;
+      const startSubSkillIndex = Math.floor((startDay - 1) * subSkillsPerDay);
+      const endSubSkillIndex = Math.min(Math.floor(endDay * subSkillsPerDay), subSkillCount);
+
+      const prompt = `
+You are an expert skill development coach. Generate a partial roadmap for days ${startDay} to ${endDay} of a ${totalDays}-day additional skills plan, focusing on ${skillCategory}. Follow these instructions:
+
+Instructions:
+1. **Input**:
+   - Category: "${category}"
+   - Skill Category: "${skillCategory}"
+   - Specific Skill: "${specificSkill}"
+   - Sub-Skills: ${JSON.stringify(subSkills, null, 2)}
+   - Duration: ${totalDays} days
+   - Current Level: "${currentLevel}"
+   - Practice Frequency: "${practiceFrequency}"
+   - Start Date: "${startDate}"
+   - Generate tasks for days ${startDay} to ${endDay} only
+2. **Output**:
+   - Generate ${daysInChunk} tasks for days ${startDay} to ${endDay}.
+   - Each task has a "title" (max 10 words) and "description" (max 30 words).
+   - Distribute ${subSkillCount} sub-skills over ${totalDays} days (~${subSkillsPerDay.toFixed(2)} sub-skills/day).
+   - For this chunk, focus on sub-skills ${startSubSkillIndex + 1} to ${endSubSkillIndex} if applicable, or cycle through all sub-skills.
+   - Tailor tasks to ${currentLevel}, progressing toward mastering "${specificSkill}".
+   - Include a mix of learning new sub-skills and practice tasks, adjusted to ${practiceFrequency}.
+   - Return valid JSON **with no extra text, markdown, or explanations**.
+   - Structure:
+     {
+       "title": "${specificSkill} Skill Development Roadmap",
+       "description": "A ${totalDays}-day plan to master ${specificSkill.toLowerCase()}",
+       "totalDays": ${daysInChunk},
+       "tasks": [
+         {
+           "day": ${startDay},
+           "title": "Task Title",
+           "description": "Detailed, actionable description"
+         },
+         ...
+       ]
+     }
+3. **Rules**:
+   - Output **only valid JSON**.
+   - Days are sequential from ${startDay} to ${endDay}.
+   - Spread sub-skills evenly, avoiding early completion.
+   - Adjust practice frequency (daily, weekly, biweekly) as specified.
+
+Now, generate a roadmap segment for days ${startDay} to ${endDay}:
+`;
+
+      const result = await model.generateContentStream(prompt);
+      let fullText = '';
+      for await (const chunk of result.stream) {
+        fullText += chunk.text();
+      }
+      console.log(`Raw Gemini response for days ${startDay}-${endDay}:`, fullText);
+      const jsonMatch = fullText.match(/{[\s\S]*}/);
+      if (!jsonMatch) throw new Error(`No valid JSON for days ${startDay}-${endDay}`);
+      const chunkData = JSON.parse(jsonMatch[0]);
+
+      if (i === 0) {
+        roadmapTitle = chunkData.title;
+        roadmapDescription = chunkData.description;
+      }
+      allTasks = allTasks.concat(chunkData.tasks);
+    }
+
+    return {
+      title: roadmapTitle,
+      description: roadmapDescription,
+      totalDays,
+      tasks: allTasks,
+    };
   }
+
+  throw new Error('Unsupported category');
 };
 
 export const parseRoadmapText = (roadmap, startDate) => {
