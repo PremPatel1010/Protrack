@@ -2,15 +2,17 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom'; // Import useNavigate
 import { motion } from 'framer-motion';
 import { ArrowRight } from 'lucide-react';
+import axios from 'axios';
 
 function App() {
   const [formData, setFormData] = useState({
-    username: '',
+    name: '',
     email: '',
     password: '',
   });
+  const [error, setError] = useState(''); // For error messages
 
-  const navigate = useNavigate(); // Hook for navigation
+  const navigate = useNavigate();
 
   const handleChange = (e) => {
     setFormData({
@@ -19,13 +21,27 @@ function App() {
     });
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    // Simulate form submission logic
-    console.log('Form submitted:', formData);
+    setError(''); // Clear previous errors
 
-    // Redirect to home page after signup
-    navigate('/home'); 
+    try {
+      const response = await axios.post('http://localhost:3000/api/auth/signup', formData);
+      const { token } = response.data;
+
+      // Store token in localStorage
+      localStorage.setItem('token', token);
+
+      console.log('Signup successful:', formData);
+      navigate('/home'); // Redirect to home page
+    } catch (err) {
+      if (err.response) {
+        setError(err.response.data.message || 'Signup failed');
+      } else {
+        setError('Server error. Please try again later.');
+      }
+      console.error('Signup error:', err);
+    }
   };
 
   return (
@@ -48,8 +64,8 @@ function App() {
               <div className="relative">
                 <input
                   type="text"
-                  name="username"
-                  value={formData.username}
+                  name="name"
+                  value={formData.name}
                   onChange={handleChange}
                   placeholder="Username"
                   className="block w-full pl-10 pr-3 py-3 border border-gray-300 rounded-xl"

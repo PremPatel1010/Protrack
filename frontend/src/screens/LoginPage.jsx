@@ -2,14 +2,16 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom'; // Import useNavigate
 import { motion } from 'framer-motion';
 import { Mail, Lock, ArrowRight } from 'lucide-react';
+import axios from 'axios';
 
 function App() {
   const [formData, setFormData] = useState({
     email: '',
     password: '',
   });
+  const [error, setError] = useState(''); // For error messages
 
-  const navigate = useNavigate(); // Initialize useNavigate
+  const navigate = useNavigate();
 
   const handleChange = (e) => {
     setFormData({
@@ -18,12 +20,27 @@ function App() {
     });
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    console.log('Login Successful:', formData);
+    setError(''); // Clear previous errors
 
-    // Redirect to home page after login
-    navigate('/home');
+    try {
+      const response = await axios.post('http://localhost:3000/api/auth/login', formData);
+      const { token } = response.data;
+
+      // Store token in localStorage
+      localStorage.setItem('token', token);
+
+      console.log('Login successful:', formData);
+      navigate('/home'); // Redirect to home page
+    } catch (err) {
+      if (err.response) {
+        setError(err.response.data.message || 'Login failed');
+      } else {
+        setError('Server error. Please try again later.');
+      }
+      console.error('Login error:', err);
+    }
   };
 
   return (

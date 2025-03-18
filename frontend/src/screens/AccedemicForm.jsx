@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import { BookOpen, ArrowRight } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import axios from 'axios';
 
 const UniversalAcademicRoadmapForm = () => {
   const navigate = useNavigate();
@@ -14,6 +15,7 @@ const UniversalAcademicRoadmapForm = () => {
     currentLevel: '',
   });
   const [errors, setErrors] = useState({});
+  const [submissionError, setSubmissionError] = useState(''); // For backend errors
 
   const academicTypes = ['School', 'Diploma', 'Degree'];
   const schoolStandards = ['9th', '10th', '11th', '12th'];
@@ -98,20 +100,52 @@ const UniversalAcademicRoadmapForm = () => {
     return Object.keys(newErrors).length === 0;
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
+    setSubmissionError(''); // Clear previous submission errors
+
     if (validateForm()) {
       const start = new Date(formData.startDate);
       const exam = new Date(formData.examDate);
       const totalDays = Math.ceil((exam - start) / (1000 * 60 * 60 * 24));
-      
+
       const submittedData = {
-        ...formData,
-        totalDays: totalDays > 0 ? totalDays : 0
+        category: 'academic',
+        formData: {
+          ...formData,
+          totalDays: totalDays > 0 ? totalDays : 0,
+        },
+        startDate: formData.startDate,
       };
-      
-      console.log('Form submitted:', submittedData);
-      navigate('/access');
+
+      try {
+        const token = localStorage.getItem('token');
+        if (!token) {
+          setSubmissionError('Please log in to create a roadmap');
+          navigate('/login');
+          return;
+        }
+
+        const response = await axios.post(
+          'http://localhost:3000/api/roadmap/create',
+          submittedData,
+          {
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+          }
+        );
+
+        console.log('Roadmap created successfully:', response.data);
+        navigate(`/roadmap/${response.data._id}`); // Redirect to roadmap detail page
+      } catch (err) {
+        if (err.response) {
+          setSubmissionError(err.response.data.message || 'Failed to create roadmap');
+        } else {
+          setSubmissionError('Server error. Please try again later.');
+        }
+        console.error('Submission error:', err);
+      }
     }
   };
 

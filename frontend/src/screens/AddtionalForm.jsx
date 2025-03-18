@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import { BookOpen, ArrowRight } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import axios from 'axios';
 
 const AdditionalSkillsRoadmapForm = () => {
   const navigate = useNavigate();
@@ -15,6 +16,7 @@ const AdditionalSkillsRoadmapForm = () => {
     practiceFrequency: '',
   });
   const [errors, setErrors] = useState({});
+  const [submissionError, setSubmissionError] = useState(''); // For backend errors
 
   const skillCategories = [
     'Technical (e.g., Coding)',
@@ -76,12 +78,48 @@ const AdditionalSkillsRoadmapForm = () => {
   };
 
   // Handle form submission
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
+    setSubmissionError(''); // Clear previous submission errors
+
     if (validateForm()) {
-      const submittedData = { ...formData };
-      console.log('Form submitted:', submittedData);
-      navigate('/add'); // Adjust the route as needed
+      const submittedData = {
+        category: 'additional', // Match backend category
+        formData: {
+          ...formData,
+          duration: parseInt(formData.duration, 10), // Ensure duration is a number
+        },
+        startDate: formData.startDate,
+      };
+
+      try {
+        const token = localStorage.getItem('token');
+        if (!token) {
+          setSubmissionError('Please log in to create a roadmap');
+          navigate('/login');
+          return;
+        }
+
+        const response = await axios.post(
+          'http://localhost:3000/api/roadmap/create',
+          submittedData,
+          {
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+          }
+        );
+
+        console.log('Roadmap created successfully:', response.data);
+        navigate(`/roadmap/${response.data._id}`); // Redirect to roadmap detail page
+      } catch (err) {
+        if (err.response) {
+          setSubmissionError(err.response.data.message || 'Failed to create roadmap');
+        } else {
+          setSubmissionError('Server error. Please try again later.');
+        }
+        console.error('Submission error:', err);
+      }
     }
   };
 

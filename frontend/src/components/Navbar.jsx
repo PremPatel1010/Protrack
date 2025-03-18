@@ -7,10 +7,16 @@ const Navbar = () => {
   const location = useLocation(); // Get current route
   const navigate = useNavigate(); // Navigation hook
 
+  // Check if user is authenticated by presence of token
+  const isAuthenticated = !!localStorage.getItem('token');
+
   const handleLogout = () => {
-    console.log("User Logged Out");
-    // Add logout logic (e.g., clear auth tokens)
-    navigate("/"); // Redirect to Hero Page
+    // Clear token from localStorage
+    localStorage.removeItem('token');
+    console.log('User Logged Out');
+
+    // Redirect to Hero Page
+    navigate('/');
   };
 
   // Define page checks
@@ -56,8 +62,8 @@ const Navbar = () => {
 
         {/* Right Section: Conditional Buttons */}
         <div className="flex space-x-6">
-          {/* Home Button: Show on all pages except Hero, Home, Login, Signup */}
-          {!isHeroPage && !isHomePage && !isLoginPage && !isSignupPage && (
+          {/* Home Button: Show on all pages except Hero, Home, Login, Signup when authenticated */}
+          {isAuthenticated && !isHeroPage && !isHomePage && !isLoginPage && !isSignupPage && (
             <Link
               to="/home"
               className="flex items-center px-6 py-2 text-lg font-semibold text-white bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 rounded-lg shadow-md hover:from-indigo-700 hover:to-purple-700 transition-all duration-300"
@@ -67,8 +73,8 @@ const Navbar = () => {
             </Link>
           )}
 
-          {/* Logout Button: Show on all pages except Hero, Login, Signup */}
-          {!isHeroPage && !isLoginPage && !isSignupPage && (
+          {/* Logout Button: Show on all pages when user is authenticated */}
+          {isAuthenticated && (
             <button
               onClick={handleLogout}
               className="flex items-center px-6 py-2 text-lg font-semibold text-white bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 rounded-lg shadow-md hover:from-indigo-700 hover:to-purple-700 transition-all duration-300"
@@ -77,8 +83,8 @@ const Navbar = () => {
             </button>
           )}
 
-          {/* Hero Page Buttons: Login and Sign Up */}
-          {isHeroPage && (
+          {/* Login and Sign Up Buttons: Show on all pages when user is not authenticated */}
+          {!isAuthenticated && (
             <>
               <Link
                 to="/login"

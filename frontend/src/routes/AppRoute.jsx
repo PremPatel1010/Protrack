@@ -2,7 +2,7 @@ import React from 'react';
 import { Routes, Route } from 'react-router-dom';
 import HeroPage from '../screens/HeroPage';
 import HomePage from '../screens/HomePage';
-import SignupPage from '../screens/SingupPage.jsx'; // <-- Add this import
+import SignupPage from '../screens/SignupPage.jsx'; // <-- Add this import
 import LoginPage from '../screens/LoginPage.jsx'; // <-- Add this import
 import AccedemicTask from '../screens/AccedemicTask.jsx'; // <-- Add this import
 import AdditionalTask from '../screens/AdditionalTask.jsx'; // <-- Add this import

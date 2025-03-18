@@ -4,6 +4,7 @@ import dotenv from 'dotenv';
 import connectDB from './config/db.js';
 import authRoutes from './routes/authRoute.js';
 import roadmapRoutes from './routes/roadmapRoute.js';
+import morgan from 'morgan';
 
 dotenv.config();
 
@@ -13,6 +14,7 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
+app.use(morgan('dev'));
 // Connect to MongoDB
 connectDB();
 

@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import { BookOpen, ArrowRight } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import axios from 'axios';
 
 const PersonalityRoadmapForm = () => {
   const navigate = useNavigate();
@@ -14,19 +15,18 @@ const PersonalityRoadmapForm = () => {
     frequency: '',
   });
   const [errors, setErrors] = useState({});
+  const [submissionError, setSubmissionError] = useState('');
 
   const goalTypes = ['Confidence', 'Communication Skills', 'Emotional Intelligence', 'Leadership', 'Other'];
   const proficiencyLevels = ['Beginner', 'Intermediate', 'Advanced'];
   const frequencies = ['Daily', 'Weekly', 'Biweekly'];
 
-  // Handle input changes
   const handleChange = (e) => {
     const { name, value } = e.target;
     setFormData({ ...formData, [name]: value });
     setErrors({ ...errors, [name]: '' });
   };
 
-  // Handle specificGoals array changes
   const handleSpecificGoalChange = (index, value) => {
     const newSpecificGoals = [...formData.specificGoals];
     newSpecificGoals[index].name = value;
@@ -34,7 +34,6 @@ const PersonalityRoadmapForm = () => {
     setErrors({ ...errors, specificGoals: '' });
   };
 
-  // Add new specific goal entry
   const addSpecificGoalEntry = () => {
     setFormData({
       ...formData,
@@ -42,13 +41,11 @@ const PersonalityRoadmapForm = () => {
     });
   };
 
-  // Remove specific goal entry
   const removeSpecificGoalEntry = (index) => {
     const newSpecificGoals = formData.specificGoals.filter((_, i) => i !== index);
     setFormData({ ...formData, specificGoals: newSpecificGoals });
   };
 
-  // Form validation
   const validateForm = () => {
     const newErrors = {};
 
@@ -67,13 +64,48 @@ const PersonalityRoadmapForm = () => {
     return Object.keys(newErrors).length === 0;
   };
 
-  // Handle form submission
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
+    setSubmissionError('');
+
     if (validateForm()) {
-      const submittedData = { ...formData };
-      console.log('Form submitted:', submittedData);
-      navigate('/personal'); // Adjust the route as needed
+      const submittedData = {
+        category: 'personality', // Match backend category
+        formData: {
+          ...formData,
+          duration: parseInt(formData.duration, 10), // Ensure duration is a number
+        },
+        startDate: formData.startDate,
+      };
+
+      try {
+        const token = localStorage.getItem('token');
+        if (!token) {
+          setSubmissionError('Please log in to create a roadmap');
+          navigate('/login');
+          return;
+        }
+
+        const response = await axios.post(
+          'http://localhost:3000/api/roadmap/create',
+          submittedData,
+          {
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+          }
+        );
+
+        console.log('Roadmap created successfully:', response.data);
+        navigate(`/roadmap/${response.data._id}`);
+      } catch (err) {
+        if (err.response) {
+          setSubmissionError(err.response.data.message || 'Failed to create roadmap');
+        } else {
+          setSubmissionError('Server error. Please try again later.');
+        }
+        console.error('Submission error:', err);
+      }
     }
   };
 
