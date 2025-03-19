@@ -97,7 +97,7 @@ const PersonalityRoadmapForm = () => {
         );
 
         console.log('Roadmap created successfully:', response.data);
-        navigate(`/roadmap/${response.data._id}`);
+        navigate(`/personality`);
       } catch (err) {
         if (err.response) {
           setSubmissionError(err.response.data.message || 'Failed to create roadmap');

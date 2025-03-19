@@ -1,24 +1,30 @@
-// src/screens/HomePage.jsx
-// src/screens/HomePage.jsx
-import React from 'react';
-import { Link } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
+import axios from 'axios';
 import { motion } from 'framer-motion';
 import { BookOpen, Brain, Target, Trophy, ArrowRight } from 'lucide-react';
 
-function FeatureBox({ title, description, icon: Icon, progress, gradient }) {
-  const getRoute = (title) => {
+function FeatureBox({ title, description, icon: Icon, progress, gradient, hasRoadmap }) {
+  const navigate = useNavigate();
+
+  const getRoute = (title, hasRoadmap) => {
     switch (title) {
       case 'Academic Roadmaps':
-        return '/accform'; // Matches AccedemicForm in AppRoute
+        return hasRoadmap ? '/academic' : '/academic-form';
       case 'Additional Skills':
-        return '/addform'; // Matches AdditionalForm in AppRoute
+        return hasRoadmap ? '/additional' : '/additional-form';
       case 'Long-term Goals':
-        return '/goalform'; // Matches GoalForm in AppRoute
+        return hasRoadmap ? '/longterm' : '/longterm-form';
       case 'Personality Development':
-        return '/personalform'; // Matches PersonalForm in AppRoute
+        return hasRoadmap ? '/personality' : '/personality-form';
       default:
         return '/';
     }
+  };
+
+  const handleClick = () => {
+    const route = getRoute(title, hasRoadmap);
+    navigate(route);
   };
 
   return (
@@ -36,13 +42,13 @@ function FeatureBox({ title, description, icon: Icon, progress, gradient }) {
       </div>
       <p className="text-white/90 line-clamp-3">{description}</p>
       <div className="flex items-center justify-between pt-4">
-        <Link
-          to={getRoute(title)}
+        <button
+          onClick={handleClick}
           className="flex items-center gap-2 px-4 py-2 bg-white/90 backdrop-blur-sm text-gray-800 rounded-lg hover:bg-white transition-colors group"
         >
           Start Now
           <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
-        </Link>
+        </button>
         <div className="w-12 h-12 rounded-full bg-white/90 backdrop-blur-sm flex items-center justify-center">
           <span className="text-gray-800 font-bold">{progress}%</span>
         </div>
@@ -74,6 +80,16 @@ function ProgressBar({ label, progress, gradient }) {
 }
 
 function Home() {
+  const navigate = useNavigate();
+  const [roadmapStatus, setRoadmapStatus] = useState({
+    academic: false,
+    additional: false,
+    longterm: false,
+    personality: false,
+  });
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+
   const features = [
     {
       title: 'Academic Roadmaps',
@@ -82,6 +98,7 @@ function Home() {
       icon: BookOpen,
       progress: 65,
       gradient: 'bg-gradient-to-br from-indigo-600 to-purple-600',
+      category: 'academic',
     },
     {
       title: 'Additional Skills',
@@ -90,6 +107,7 @@ function Home() {
       icon: Trophy,
       progress: 45,
       gradient: 'bg-gradient-to-br from-purple-600 to-pink-600',
+      category: 'additional',
     },
     {
       title: 'Long-term Goals',
@@ -98,6 +116,7 @@ function Home() {
       icon: Target,
       progress: 30,
       gradient: 'bg-gradient-to-br from-indigo-500 to-purple-500',
+      category: 'longterm',
     },
     {
       title: 'Personality Development',
@@ -106,8 +125,53 @@ function Home() {
       icon: Brain,
       progress: 55,
       gradient: 'bg-gradient-to-br from-pink-500 to-red-600',
+      category: 'personality',
     },
   ];
+
+  useEffect(() => {
+    const fetchRoadmapStatus = async () => {
+      try {
+        const token = localStorage.getItem('token');
+        if (!token) {
+          setError('Please log in to view your roadmaps');
+          navigate('/login');
+          return;
+        }
+
+        const response = await axios.get('http://localhost:3000/api/roadmap/user', {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+
+        const roadmaps = response.data;
+        const status = {
+          academic: false,
+          additional: false,
+          longterm: false,
+          personality: false,
+        };
+
+        roadmaps.forEach((roadmap) => {
+          if (roadmap.category === 'academic') status.academic = true;
+          if (roadmap.category === 'additional') status.additional = true;
+          if (roadmap.category === 'longterm') status.longterm = true;
+          if (roadmap.category === 'personality') status.personality = true;
+        });
+
+        setRoadmapStatus(status);
+        setLoading(false);
+      } catch (err) {
+        console.error('Fetch error:', err.message);
+        setError('Failed to load roadmap status');
+        setLoading(false);
+      }
+    };
+
+    fetchRoadmapStatus();
+  }, [navigate]);
+
+  if (loading) return <div className="text-center text-gray-600">Loading...</div>;
+  if (error) return <div className="text-center text-red-500">{error}</div>;
 
   return (
     <motion.div
@@ -128,7 +192,11 @@ function Home() {
         <div className="flex flex-col lg:flex-row gap-12">
           <div className="lg:w-2/3 grid md:grid-cols-2 gap-8">
             {features.map((feature, index) => (
-              <FeatureBox key={index} {...feature} />
+              <FeatureBox
+                key={index}
+                {...feature}
+                hasRoadmap={roadmapStatus[feature.category]}
+              />
             ))}
           </div>
           <motion.div
@@ -154,7 +222,7 @@ function Home() {
             </div>
           </motion.div>
         </div>
-      </div>
+     23</div>
     </motion.div>
   );
 }

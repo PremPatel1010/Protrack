@@ -1,39 +1,123 @@
-import React, { useState } from 'react';
-import { Calendar, BookOpen, Video, Lightbulb, BarChart, CheckCircle, Circle } from 'lucide-react';
-import { motion } from 'framer-motion';
+import React, { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
+import axios from "axios";
+import { Calendar, BookOpen, Video, Lightbulb, BarChart, CheckCircle, Circle } from "lucide-react";
+import { motion } from "framer-motion";
 
-const topics = [
-  { name: "Frontend Development", progress: 65 },
-  { name: "Backend Architecture", progress: 45 },
-  { name: "Database Design", progress: 30 },
-  { name: "API Integration", progress: 80 },
-  { name: "Testing Methodologies", progress: 25 },
-  { name: "DevOps Practices", progress: 40 },
-  { name: "Security Best Practices", progress: 55 },
-  { name: "UI/UX Design", progress: 70 },
-];
+function AdditionalTask() {
+  const navigate = useNavigate();
+  const [days, setDays] = useState([]);
+  const [subjects, setSubjects] = useState([]);
+  const [tasks, setTasks] = useState([]);
+  const [selectedDay, setSelectedDay] = useState("");
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
 
-const tasks = {
-  1: [
-    { id: "day1-task1", title: "Setup Development Environment", description: "Install and configure all necessary development tools", day: 1 },
-    { id: "day1-task2", title: "Learn Version Control Basics", description: "Master fundamental Git commands and workflows", day: 1 },
-  ],
-  2: [
-    { id: "day2-task1", title: "Study Data Structures", description: "Learn about arrays, linked lists, and trees", day: 2 },
-    { id: "day2-task2", title: "Practice Algorithms", description: "Solve basic algorithmic problems", day: 2 },
-  ],
-  3: [
-    { id: "day3-task1", title: "Frontend Frameworks", description: "Explore modern frontend frameworks", day: 3 },
-    { id: "day3-task2", title: "Responsive Design", description: "Learn principles of responsive web design", day: 3 },
-  ],
-};
+  useEffect(() => {
+    const fetchAdditionalTaskRoadmap = async () => {
+      try {
+        const token = localStorage.getItem('token');
+        if (!token) {
+          setError('Please log in to view your roadmap');
+          navigate('/login');
+          return;
+        }
 
-function App() {
-  const [selectedDay, setSelectedDay] = useState(1);
-  const totalDays = 30;
-  const [completedTasks, setCompletedTasks] = useState([]);
+        console.log('Fetching with token:', token);
+        const response = await axios.get('http://localhost:3000/api/roadmap/user?category=additional', {
+          headers: { Authorization: `Bearer ${token}` },
+        });
 
-  const days = Array.from({ length: totalDays }, (_, i) => i + 1);
+        console.log('Response status:', response.status);
+        console.log('Response data:', response.data);
+
+        const roadmaps = response.data;
+        if (!roadmaps.length) {
+          setError('No additional task roadmap found');
+          setLoading(false);
+          return;
+        }
+
+        const additionalRoadmap = roadmaps[0];
+        console.log('Selected roadmap:', additionalRoadmap);
+
+        // Extract days from dailyTasks
+        const roadmapDays = additionalRoadmap.dailyTasks.map(task => `Day ${task.day}`);
+        setDays([...new Set(roadmapDays)]);
+        setSelectedDay(roadmapDays[0] || "");
+
+        // Derive subjects from dailyTasks (assuming title is "Subject: Topic")
+        const subjectSet = new Set();
+        additionalRoadmap.dailyTasks.forEach(task => {
+          const subject = task.title.split(':')[0]?.trim();
+          if (subject) subjectSet.add(subject);
+        });
+        const derivedSubjects = Array.from(subjectSet).map((name, index) => ({
+          id: index + 1,
+          name,
+          progress: 0, // Static for now; could calculate from completed tasks
+        }));
+        console.log('Derived subjects:', derivedSubjects);
+        setSubjects(derivedSubjects.length ? derivedSubjects : [{ id: 1, name: 'Unknown', progress: 0 }]);
+
+        // Map tasks
+        const mappedTasks = additionalRoadmap.dailyTasks.map((task, index) => ({
+          id: index + 1,
+          subject: derivedSubjects.find(s => s.name === task.title.split(':')[0]?.trim())?.id || 1,
+          day: `Day ${task.day}`,
+          title: task.title,
+          description: task.description,
+          completed: task.completed || false,
+          referenceType: task.description.toLowerCase().includes('video') ? 'video' : 'notes',
+        }));
+        console.log('Mapped tasks:', mappedTasks);
+        setTasks(mappedTasks);
+
+        setLoading(false);
+      } catch (err) {
+        console.error('Fetch error:', err.message, err.stack);
+        setError(err.message || 'Failed to load additional task roadmap');
+        setLoading(false);
+      }
+    };
+
+    fetchAdditionalTaskRoadmap();
+  }, [navigate]);
+
+  const filteredTasks = tasks.filter((task) => task.day === selectedDay);
+
+  const toggleTaskCompletion = async (taskId) => {
+    const task = tasks.find(t => t.id === taskId);
+    const newCompletedStatus = !task.completed;
+
+    setTasks((prev) =>
+      prev.map((t) => (t.id === taskId ? { ...t, completed: newCompletedStatus } : t))
+    );
+
+    try {
+      const token = localStorage.getItem('token');
+      const response = await axios.get('http://localhost:3000/api/roadmap/user?category=additional', {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const additionalRoadmap = response.data[0];
+
+      if (!additionalRoadmap) {
+        throw new Error('Additional task roadmap not found');
+      }
+
+      const backendTaskId = taskId - 1; // Adjust to zero-based index
+      await axios.patch(
+        `http://localhost:3000/api/roadmap/${additionalRoadmap.id}/task/${backendTaskId}`,
+        { completed: newCompletedStatus },
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+    } catch (err) {
+      console.error('Update error:', err);
+      setTasks((prev) =>
+        prev.map((t) => (t.id === taskId ? { ...t, completed: !newCompletedStatus } : t))
+      );
+    }
+  };
 
   const commonSuggestions = [
     { title: "Time Management", description: "Allocate specific time blocks for focused learning and practice" },
@@ -46,14 +130,6 @@ function App() {
     { title: "Best Practices Tutorial", type: "Video", link: "https://example.com/tutorial" },
     { title: "Industry Standards Overview", type: "Documentation", link: "https://example.com/standards" },
   ];
-
-  const toggleTaskCompletion = (taskId) => {
-    setCompletedTasks((prev) =>
-      prev.includes(taskId)
-        ? prev.filter((id) => id !== taskId)
-        : [...prev, taskId]
-    );
-  };
 
   const TaskList = ({ tasks }) => {
     return (
@@ -71,7 +147,7 @@ function App() {
                 onClick={() => toggleTaskCompletion(task.id)}
                 className="mt-1 flex-shrink-0"
               >
-                {completedTasks.includes(task.id) ? (
+                {task.completed ? (
                   <CheckCircle className="w-5 h-5 text-green-500" />
                 ) : (
                   <Circle className="w-5 h-5 text-gray-400 hover:text-indigo-500 transition-colors" />
@@ -80,9 +156,7 @@ function App() {
               <div>
                 <h3
                   className={`font-medium ${
-                    completedTasks.includes(task.id)
-                      ? "text-green-600 line-through"
-                      : "text-indigo-900"
+                    task.completed ? "text-green-600 line-through" : "text-indigo-900"
                   }`}
                 >
                   {task.title}
@@ -96,6 +170,9 @@ function App() {
     );
   };
 
+  if (loading) return <div>Loading...</div>;
+  if (error) return <div className="text-red-500">{error}</div>;
+
   return (
     <motion.div
       initial={{ opacity: 0 }}
@@ -104,7 +181,6 @@ function App() {
       className="min-h-screen bg-gradient-to-br from-indigo-50 via-purple-50 to-pink-50 p-6 relative overflow-hidden"
     >
       <div className="max-w-7xl mx-auto relative z-10">
-        {/* Updated Heading */}
         <motion.div
           initial={{ opacity: 0, y: -20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -119,7 +195,6 @@ function App() {
         <div className="flex gap-6">
           {/* Left Sidebar */}
           <div className="w-80 flex-shrink-0 space-y-6">
-            {/* Days Selection */}
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
@@ -142,14 +217,13 @@ function App() {
                           : "bg-white/80 text-indigo-700 hover:bg-indigo-50 hover:shadow-sm"
                       }`}
                     >
-                      <span>Day {day}</span>
+                      <span>{day}</span>
                     </button>
                   ))}
                 </div>
               </div>
             </motion.div>
 
-            {/* Progress Tracking */}
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
@@ -161,16 +235,16 @@ function App() {
                 Skill Mastery Progress
               </h2>
               <div className="space-y-4 max-h-80 overflow-y-auto pr-2 custom-scrollbar">
-                {topics.map((topic, index) => (
-                  <div key={index} className="space-y-2">
+                {subjects.map((subject) => (
+                  <div key={subject.id} className="space-y-2">
                     <div className="flex justify-between items-center">
-                      <span className="text-indigo-800 text-sm font-medium">{topic.name}</span>
-                      <span className="text-indigo-600 text-xs">{topic.progress}%</span>
+                      <span className="text-indigo-800 text-sm font-medium">{subject.name}</span>
+                      <span className="text-indigo-600 text-xs">{subject.progress}%</span>
                     </div>
                     <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
                       <div
                         className="h-full bg-gradient-to-r from-indigo-500 to-purple-500 rounded-full transition-all duration-300"
-                        style={{ width: `${topic.progress}%` }}
+                        style={{ width: `${subject.progress}%` }}
                       />
                     </div>
                   </div>
@@ -181,7 +255,6 @@ function App() {
 
           {/* Main Content */}
           <div className="flex-1 max-w-3xl space-y-6">
-            {/* Tasks Section */}
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
@@ -189,12 +262,11 @@ function App() {
               className="bg-white/90 backdrop-blur-md rounded-xl p-6 shadow-lg border border-indigo-100"
             >
               <h2 className="text-indigo-900 font-bold mb-4 text-xl">
-                Day {selectedDay} Challenges
+                {selectedDay} Challenges
               </h2>
-              <TaskList tasks={tasks[selectedDay] || []} />
+              <TaskList tasks={filteredTasks} />
             </motion.div>
 
-            {/* Common Suggestions */}
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
@@ -218,7 +290,6 @@ function App() {
               </div>
             </motion.div>
 
-            {/* Common References */}
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
@@ -257,4 +328,4 @@ function App() {
   );
 }
 
-export default App;
+export default AdditionalTask;

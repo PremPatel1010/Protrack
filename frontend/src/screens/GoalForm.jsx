@@ -97,7 +97,7 @@ const LongTermGoalRoadmapForm = () => {
         );
 
         console.log('Roadmap created successfully:', response.data);
-        navigate(`/roadmap/${response.data._id}`);
+        navigate(`/longterm`);
       } catch (err) {
         if (err.response) {
           setSubmissionError(err.response.data.message || 'Failed to create roadmap');

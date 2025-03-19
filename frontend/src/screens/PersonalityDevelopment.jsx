@@ -1,52 +1,18 @@
-import React, { useState } from 'react';
-import { Calendar, BookOpen, Video, Lightbulb, BarChart, CheckCircle, Circle, ArrowRight, ArrowLeft, Book, Wrench, Target, User } from 'lucide-react';
-import { motion } from 'framer-motion';
+import React, { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
+import axios from "axios";
+import { Calendar, BookOpen, Video, Lightbulb, BarChart, CheckCircle, Circle, ArrowRight, ArrowLeft, Book, Wrench, Target, User } from "lucide-react";
+import { motion } from "framer-motion";
 
-function App() {
+function PersonalityDevelopment() {
+  const navigate = useNavigate();
   const [selectedDay, setSelectedDay] = useState(1);
-  const [completedTasks, setCompletedTasks] = useState([]);
+  const [days, setDays] = useState([]);
+  const [tasks, setTasks] = useState([]);
+  const [traits, setTraits] = useState([]);
   const [currentPage, setCurrentPage] = useState('Personality');
-  const totalDays = 30;
-  const days = Array.from({ length: totalDays }, (_, i) => i + 1);
-
-  // Simulated data for all pages
-  const academicTasks = {
-    1: [
-      { id: 'acad-day1-task1', title: 'Complete Algebra Exercises', description: 'Solve 10 problems' },
-      { id: 'acad-day1-task2', title: 'Review Quadratic Equations', description: 'Read Chapter 3' },
-    ],
-  };
-  const additionalSkillsTasks = {
-    1: [
-      { id: 'add-day1-task1', title: 'Setup Development Environment', description: 'Install necessary tools' },
-      { id: 'add-day1-task2', title: 'Learn Git Basics', description: 'Master fundamental commands' },
-    ],
-  };
-  const longTermGoals = [
-    { id: 'ltg1', title: 'Master Advanced Algorithms', completed: false },
-    { id: 'ltg2', title: 'Build Scalable Systems', completed: true },
-  ];
-  const personalityTasks = {
-    1: [
-      { id: 'pers-day1-task1', title: 'Smile at a Stranger', description: 'Boost your warmth and approachability' },
-      { id: 'pers-day1-task2', title: 'List 3 Strengths', description: 'Reflect on what makes you unique' },
-    ],
-    2: [
-      { id: 'pers-day2-task1', title: 'Ask a Question', description: 'Practice curiosity in a conversation' },
-      { id: 'pers-day2-task2', title: 'Meditate 5 Mins', description: 'Build emotional resilience' },
-    ],
-    3: [
-      { id: 'pers-day3-task1', title: 'Say No Once', description: 'Exercise assertiveness politely' },
-      { id: 'pers-day3-task2', title: 'Help Someone', description: 'Cultivate empathy through action' },
-    ],
-  };
-
-  const traits = [
-    { id: 1, name: 'Confidence', progress: 70 },
-    { id: 2, name: 'Empathy', progress: 55 },
-    { id: 3, name: 'Resilience', progress: 40 },
-    { id: 4, name: 'Openness', progress: 65 },
-  ];
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
 
   const motivationalQuotes = [
     { text: "The only way to grow is to step out of your comfort zone.", author: "Unknown" },
@@ -62,16 +28,109 @@ function App() {
     { title: 'Resilience Strategies', type: 'Documentation', link: 'https://example.com/resilience' },
   ];
 
-  // Calculate incomplete tasks for each page
-  const incompleteAcademicTasks = Object.values(academicTasks).flat().filter(task => !completedTasks.includes(task.id)).length;
-  const incompleteAdditionalTasks = Object.values(additionalSkillsTasks).flat().filter(task => !completedTasks.includes(task.id)).length;
-  const incompleteLongTermGoals = longTermGoals.filter(goal => !completedTasks.includes(goal.id)).length;
-  const incompletePersonalityTasks = Object.values(personalityTasks).flat().filter(task => !completedTasks.includes(task.id)).length;
+  useEffect(() => {
+    const fetchPersonalityRoadmap = async () => {
+      try {
+        const token = localStorage.getItem('token');
+        if (!token) {
+          setError('Please log in to view your roadmap');
+          navigate('/login');
+          return;
+        }
 
-  const toggleTaskCompletion = (taskId) => {
-    setCompletedTasks((prev) =>
-      prev.includes(taskId) ? prev.filter((id) => id !== taskId) : [...prev, taskId]
+        console.log('Fetching with token:', token);
+        const response = await axios.get('http://localhost:3000/api/roadmap/user?category=personality', {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+
+        console.log('Response status:', response.status);
+        console.log('Response data:', response.data);
+
+        const roadmaps = response.data;
+        if (!roadmaps.length) {
+          setError('No personality development roadmap found');
+          setLoading(false);
+          return;
+        }
+
+        const personalityRoadmap = roadmaps[0];
+        console.log('Selected roadmap:', personalityRoadmap);
+
+        // Extract days from dailyTasks
+        const roadmapDays = personalityRoadmap.dailyTasks.map(task => task.day);
+        setDays([...new Set(roadmapDays)]);
+        setSelectedDay(roadmapDays[0] || 1);
+
+        // Derive traits from dailyTasks (assuming title is "Trait: Task")
+        const traitSet = new Set();
+        personalityRoadmap.dailyTasks.forEach(task => {
+          const trait = task.title.split(':')[0]?.trim();
+          if (trait) traitSet.add(trait);
+        });
+        const derivedTraits = Array.from(traitSet).map((name, index) => ({
+          id: index + 1,
+          name,
+          progress: 0, // Static for now; could calculate from completed tasks
+        }));
+        console.log('Derived traits:', derivedTraits);
+        setTraits(derivedTraits.length ? derivedTraits : [{ id: 1, name: 'Unknown', progress: 0 }]);
+
+        // Map tasks from dailyTasks
+        const mappedTasks = personalityRoadmap.dailyTasks.map((task, index) => ({
+          id: `pers-day${task.day}-task${index + 1}`,
+          day: task.day,
+          title: task.title,
+          description: task.description,
+          completed: task.completed || false,
+        }));
+        console.log('Mapped tasks:', mappedTasks);
+        setTasks(mappedTasks);
+
+        setLoading(false);
+      } catch (err) {
+        console.error('Fetch error:', err.message, err.stack);
+        setError(err.message || 'Failed to load personality development roadmap');
+        setLoading(false);
+      }
+    };
+
+    fetchPersonalityRoadmap();
+  }, [navigate]);
+
+  const filteredTasks = tasks.filter(task => task.day === selectedDay);
+
+  const toggleTaskCompletion = async (taskId) => {
+    const task = tasks.find(t => t.id === taskId);
+    const newCompletedStatus = !task.completed;
+
+    setTasks((prev) =>
+      prev.map((t) => (t.id === taskId ? { ...t, completed: newCompletedStatus } : t))
     );
+
+    try {
+      const token = localStorage.getItem('token');
+      const response = await axios.get('http://localhost:3000/api/roadmap/user?category=personality', {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const personalityRoadmap = response.data[0];
+
+      if (!personalityRoadmap) {
+        throw new Error('Personality development roadmap not found');
+      }
+
+      // Find the index of the task in dailyTasks
+      const taskIndex = tasks.findIndex(t => t.id === taskId);
+      await axios.patch(
+        `http://localhost:3000/api/roadmap/${personalityRoadmap.id}/task/${taskIndex}`,
+        { completed: newCompletedStatus },
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+    } catch (err) {
+      console.error('Update error:', err);
+      setTasks((prev) =>
+        prev.map((t) => (t.id === taskId ? { ...t, completed: !newCompletedStatus } : t))
+      );
+    }
   };
 
   const TaskList = ({ tasks }) => {
@@ -90,7 +149,7 @@ function App() {
                 onClick={() => toggleTaskCompletion(task.id)}
                 className="mt-1 flex-shrink-0"
               >
-                {completedTasks.includes(task.id) ? (
+                {task.completed ? (
                   <CheckCircle className="w-5 h-5 text-green-500" />
                 ) : (
                   <Circle className="w-5 h-5 text-gray-400 hover:text-indigo-500 transition-colors" />
@@ -99,7 +158,7 @@ function App() {
               <div>
                 <h3
                   className={`font-medium ${
-                    completedTasks.includes(task.id) ? 'text-green-600 line-through' : 'text-indigo-900'
+                    task.completed ? 'text-green-600 line-through' : 'text-indigo-900'
                   }`}
                 >
                   {task.title}
@@ -118,6 +177,9 @@ function App() {
     animate: { opacity: 1, y: 0, scale: 1, transition: { duration: 0.5, type: 'spring', stiffness: 120 } },
     hover: { scale: 1.05, transition: { duration: 0.2 } },
   };
+
+  if (loading) return <div>Loading...</div>;
+  if (error) return <div className="text-red-500">{error}</div>;
 
   return (
     <motion.div
@@ -145,7 +207,7 @@ function App() {
               whileHover="hover"
             >
               <button
-                onClick={() => setCurrentPage('Academic')}
+                onClick={() => navigate('/academic')}
                 className={`px-4 py-2 rounded-lg text-sm font-medium flex items-center gap-2 shadow-md transition-all ${
                   currentPage === 'Academic'
                     ? 'bg-indigo-600 text-white'
@@ -154,11 +216,6 @@ function App() {
               >
                 <Book className="w-5 h-5" />
                 Academic
-                {incompleteAcademicTasks > 0 && (
-                  <span className="absolute -top-2 -right-2 bg-red-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">
-                    {incompleteAcademicTasks}
-                  </span>
-                )}
               </button>
             </motion.div>
             <motion.div
@@ -169,7 +226,7 @@ function App() {
               whileHover="hover"
             >
               <button
-                onClick={() => setCurrentPage('Additional')}
+                onClick={() => navigate('/additional')}
                 className={`px-4 py-2 rounded-lg text-sm font-medium flex items-center gap-2 shadow-md transition-all ${
                   currentPage === 'Additional'
                     ? 'bg-indigo-600 text-white'
@@ -178,11 +235,6 @@ function App() {
               >
                 <Wrench className="w-5 h-5" />
                 Additional
-                {incompleteAdditionalTasks > 0 && (
-                  <span className="absolute -top-2 -right-2 bg-red-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">
-                    {incompleteAdditionalTasks}
-                  </span>
-                )}
               </button>
             </motion.div>
             <motion.div
@@ -193,7 +245,7 @@ function App() {
               whileHover="hover"
             >
               <button
-                onClick={() => setCurrentPage('Long-Term')}
+                onClick={() => navigate('/longterm')}
                 className={`px-4 py-2 rounded-lg text-sm font-medium flex items-center gap-2 shadow-md transition-all ${
                   currentPage === 'Long-Term'
                     ? 'bg-indigo-600 text-white'
@@ -202,11 +254,6 @@ function App() {
               >
                 <Target className="w-5 h-5" />
                 Goals
-                {incompleteLongTermGoals > 0 && (
-                  <span className="absolute -top-2 -right-2 bg-red-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">
-                    {incompleteLongTermGoals}
-                  </span>
-                )}
               </button>
             </motion.div>
             <motion.div
@@ -226,183 +273,154 @@ function App() {
               >
                 <User className="w-5 h-5" />
                 Personality
-                {incompletePersonalityTasks > 0 && (
-                  <span className="absolute -top-2 -right-2 bg-red-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">
-                    {incompletePersonalityTasks}
-                  </span>
-                )}
               </button>
             </motion.div>
           </div>
         </motion.div>
 
-        {currentPage === 'Personality' && (
-          <div className="flex gap-6">
-            {/* Left Sidebar */}
-            <div className="w-80 flex-shrink-0 space-y-6">
-              {/* Days Selection */}
-              <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.6 }}
-                className="bg-white/90 backdrop-blur-md rounded-xl p-4 shadow-lg border border-indigo-100"
-              >
-                <h2 className="text-indigo-900 font-bold mb-4 flex items-center gap-2 text-lg">
-                  <Calendar className="w-6 h-6 text-indigo-600" />
-                  Daily Quest Path
-                </h2>
-                <div className="flex items-center justify-between mb-4">
-                  <div className="flex space-x-2">
-                    <button
-                      onClick={() => setSelectedDay(prev => (prev > 1 ? prev - 1 : totalDays))}
-                      className="p-2 hover:bg-indigo-100 rounded-full"
-                    >
-                      <ArrowLeft className="w-5 h-5 text-indigo-600" />
-                    </button>
-                    <button
-                      onClick={() => setSelectedDay(prev => (prev < totalDays ? prev + 1 : 1))}
-                      className="p-2 hover:bg-indigo-100 rounded-full"
-                    >
-                      <ArrowRight className="w-5 h-5 text-indigo-600" />
-                    </button>
-                  </div>
+        <div className="flex gap-6">
+          {/* Left Sidebar */}
+          <div className="w-80 flex-shrink-0 space-y-6">
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.6 }}
+              className="bg-white/90 backdrop-blur-md rounded-xl p-4 shadow-lg border border-indigo-100"
+            >
+              <h2 className="text-indigo-900 font-bold mb-4 flex items-center gap-2 text-lg">
+                <Calendar className="w-6 h-6 text-indigo-600" />
+                Daily Quest Path
+              </h2>
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex space-x-2">
+                  <button
+                    onClick={() => setSelectedDay(prev => (prev > days[0] ? prev - 1 : days[days.length - 1]))}
+                    className="p-2 hover:bg-indigo-100 rounded-full"
+                  >
+                    <ArrowLeft className="w-5 h-5 text-indigo-600" />
+                  </button>
+                  <button
+                    onClick={() => setSelectedDay(prev => (prev < days[days.length - 1] ? prev + 1 : days[0]))}
+                    className="p-2 hover:bg-indigo-100 rounded-full"
+                  >
+                    <ArrowRight className="w-5 h-5 text-indigo-600" />
+                  </button>
                 </div>
-                <div className="max-h-[300px] overflow-y-auto pr-2 custom-scrollbar">
-                  <div className="space-y-2">
-                    {days.map((day) => (
-                      <button
-                        key={day}
-                        onClick={() => setSelectedDay(day)}
-                        className={`w-full p-3 rounded-lg text-sm font-medium transition-all flex items-center gap-2 ${
-                          selectedDay === day
-                            ? 'bg-gradient-to-r from-indigo-600 to-purple-600 text-white shadow-md'
-                            : 'bg-white/80 text-indigo-700 hover:bg-indigo-50 hover:shadow-sm'
-                        }`}
-                      >
-                        <span>Day {day}</span>
-                      </button>
-                    ))}
-                  </div>
+              </div>
+              <div className="max-h-[300px] overflow-y-auto pr-2 custom-scrollbar">
+                <div className="space-y-2">
+                  {days.map((day) => (
+                    <button
+                      key={day}
+                      onClick={() => setSelectedDay(day)}
+                      className={`w-full p-3 rounded-lg text-sm font-medium transition-all flex items-center gap-2 ${
+                        selectedDay === day
+                          ? 'bg-gradient-to-r from-indigo-600 to-purple-600 text-white shadow-md'
+                          : 'bg-white/80 text-indigo-700 hover:bg-indigo-50 hover:shadow-sm'
+                      }`}
+                    >
+                      <span>Day {day}</span>
+                    </button>
+                  ))}
                 </div>
-              </motion.div>
+              </div>
+            </motion.div>
 
-              {/* Traits Progress */}
-              <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.6 }}
-                className="bg-white/90 backdrop-blur-md rounded-xl p-4 shadow-lg border border-indigo-100"
-              >
-                <h2 className="text-indigo-900 font-bold mb-4 flex items-center gap-2 text-lg">
-                  <BarChart className="w-6 h-6 text-indigo-600" />
-                  Trait Mastery Progress
-                </h2>
-                <div className="space-y-4 max-h-80 overflow-y-auto pr-2 custom-scrollbar">
-                  {traits.map((trait) => (
-                    <div key={trait.id} className="space-y-2">
-                      <div className="flex justify-between items-center">
-                        <span className="text-indigo-800 text-sm font-medium">{trait.name}</span>
-                        <span className="text-indigo-600 text-xs">{trait.progress}%</span>
-                      </div>
-                      <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
-                        <div
-                          className="h-full bg-gradient-to-r from-indigo-500 to-purple-500 rounded-full transition-all duration-300"
-                          style={{ width: `${trait.progress}%` }}
-                        />
-                      </div>
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.6 }}
+              className="bg-white/90 backdrop-blur-md rounded-xl p-4 shadow-lg border border-indigo-100"
+            >
+              <h2 className="text-indigo-900 font-bold mb-4 flex items-center gap-2 text-lg">
+                <BarChart className="w-6 h-6 text-indigo-600" />
+                Trait Mastery Progress
+              </h2>
+              <div className="space-y-4 max-h-80 overflow-y-auto pr-2 custom-scrollbar">
+                {traits.map((trait) => (
+                  <div key={trait.id} className="space-y-2">
+                    <div className="flex justify-between items-center">
+                      <span className="text-indigo-800 text-sm font-medium">{trait.name}</span>
+                      <span className="text-indigo-600 text-xs">{trait.progress}%</span>
                     </div>
-                  ))}
-                </div>
-              </motion.div>
-            </div>
-
-            {/* Main Content */}
-            <div className="flex-1 max-w-5xl space-y-6">
-              {/* Daily Tasks Section */}
-              <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.6 }}
-                className="bg-white/90 backdrop-blur-md rounded-xl p-6 shadow-lg border border-indigo-100"
-              >
-                <h2 className="text-indigo-900 font-bold mb-4 text-xl">
-                  Day {selectedDay} Growth Challenges
-                </h2>
-                <TaskList tasks={personalityTasks[selectedDay] || []} />
-              </motion.div>
-
-              {/* Motivational Quotes */}
-              <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.6 }}
-                className="bg-white/90 backdrop-blur-md rounded-xl p-6 shadow-lg border border-indigo-100"
-              >
-                <h2 className="text-indigo-900 font-bold mb-4 text-xl flex items-center gap-2">
-                  <Lightbulb className="w-6 h-6 text-yellow-500" />
-                  Inspiration Beacon
-                </h2>
-                <div className="bg-gradient-to-br from-white to-yellow-50 p-4 rounded-lg shadow-sm hover:shadow-md transition-all">
-                  <p className="text-indigo-800 font-medium italic">"{randomQuote.text}"</p>
-                  <p className="text-gray-700 text-sm mt-1">— {randomQuote.author}</p>
-                </div>
-              </motion.div>
-
-              {/* Resources */}
-              <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.6 }}
-                className="bg-white/90 backdrop-blur-md rounded-xl p-6 shadow-lg border border-indigo-100"
-              >
-                <h2 className="text-indigo-900 font-bold mb-4 text-xl flex items-center gap-2">
-                  <BookOpen className="w-6 h-6 text-indigo-600" />
-                  Growth Vault
-                </h2>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {resources.map((resource, idx) => (
-                    <a
-                      key={idx}
-                      href={resource.link}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="bg-gradient-to-br from-white to-indigo-50 p-4 rounded-lg hover:bg-indigo-100 transition-all shadow-sm"
-                    >
-                      <div className="flex items-center gap-2">
-                        {resource.type === 'Video' ? (
-                          <Video className="w-5 h-5 text-red-500" />
-                        ) : (
-                          <BookOpen className="w-5 h-5 text-indigo-600" />
-                        )}
-                        <span className="text-indigo-800 font-medium">{resource.title}</span>
-                      </div>
-                    </a>
-                  ))}
-                </div>
-              </motion.div>
-            </div>
+                    <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
+                      <div
+                        className="h-full bg-gradient-to-r from-indigo-500 to-purple-500 rounded-full transition-all duration-300"
+                        style={{ width: `${trait.progress}%` }}
+                      />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </motion.div>
           </div>
-        )}
 
-        {/* Placeholder for other pages */}
-        {currentPage === 'Academic' && (
-          <div className="text-center text-indigo-900 text-2xl mt-10">
-            Academic Tasks Page (Placeholder)
+          {/* Main Content */}
+          <div className="flex-1 max-w-5xl space-y-6">
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.6 }}
+              className="bg-white/90 backdrop-blur-md rounded-xl p-6 shadow-lg border border-indigo-100"
+            >
+              <h2 className="text-indigo-900 font-bold mb-4 text-xl">
+                Day {selectedDay} Growth Challenges
+              </h2>
+              <TaskList tasks={filteredTasks} />
+            </motion.div>
+
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.6 }}
+              className="bg-white/90 backdrop-blur-md rounded-xl p-6 shadow-lg border border-indigo-100"
+            >
+              <h2 className="text-indigo-900 font-bold mb-4 text-xl flex items-center gap-2">
+                <Lightbulb className="w-6 h-6 text-yellow-500" />
+                Inspiration Beacon
+              </h2>
+              <div className="bg-gradient-to-br from-white to-yellow-50 p-4 rounded-lg shadow-sm hover:shadow-md transition-all">
+                <p className="text-indigo-800 font-medium italic">"{randomQuote.text}"</p>
+                <p className="text-gray-700 text-sm mt-1">— {randomQuote.author}</p>
+              </div>
+            </motion.div>
+
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.6 }}
+              className="bg-white/90 backdrop-blur-md rounded-xl p-6 shadow-lg border border-indigo-100"
+            >
+              <h2 className="text-indigo-900 font-bold mb-4 text-xl flex items-center gap-2">
+                <BookOpen className="w-6 h-6 text-indigo-600" />
+                Growth Vault
+              </h2>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {resources.map((resource, idx) => (
+                  <a
+                    key={idx}
+                    href={resource.link}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="bg-gradient-to-br from-white to-indigo-50 p-4 rounded-lg hover:bg-indigo-100 transition-all shadow-sm"
+                  >
+                    <div className="flex items-center gap-2">
+                      {resource.type === 'Video' ? (
+                        <Video className="w-5 h-5 text-red-500" />
+                      ) : (
+                        <BookOpen className="w-5 h-5 text-indigo-600" />
+                      )}
+                      <span className="text-indigo-800 font-medium">{resource.title}</span>
+                    </div>
+                  </a>
+                ))}
+              </div>
+            </motion.div>
           </div>
-        )}
-        {currentPage === 'Additional' && (
-          <div className="text-center text-indigo-900 text-2xl mt-10">
-            Additional Skills Tasks Page (Placeholder)
-          </div>
-        )}
-        {currentPage === 'Long-Term' && (
-          <div className="text-center text-indigo-900 text-2xl mt-10">
-            Long-Term Goals Page (Placeholder)
-          </div>
-        )}
+        </div>
       </div>
     </motion.div>
   );
 }
 
-export default App;
+export default PersonalityDevelopment;

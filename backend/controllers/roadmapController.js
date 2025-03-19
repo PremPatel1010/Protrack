@@ -39,14 +39,70 @@ export const createRoadmap = async (req, res) => {
 };
 
 export const getRoadmaps = async (req, res) => {
-  const { category } = req.query; // Optional category filter from your GET
+  const { category } = req.query;
+  console.log('Received category from query:', category);
+
   try {
-    const query = { userId: req.user.id };
-    if (category) query.category = category;
+    const query = { userId: req.user.id }; // Base query with userId
+    if (category) {
+      query.category = category; // Add category filter if provided
+      console.log('Filtering by category:', category);
+    } else {
+      console.log('No category provided, fetching all user roadmaps');
+    }
+    console.log('MongoDB Query:', query);
+
     const roadmaps = await Roadmap.find(query);
-    res.json(roadmaps.map(r => ({ id: r._id, ...r.toObject() })));
+    console.log('Found roadmaps:', roadmaps);
+
+    if (!roadmaps.length) {
+      return res.status(404).json({ 
+        message: `No roadmaps found${category ? ` for category "${category}"` : ''}` 
+      });
+    }
+
+    // Return only the filtered roadmaps
+    const response = roadmaps.map(r => ({ id: r._id, ...r.toObject() }));
+    console.log('Response sent:', response);
+    res.json(response);
   } catch (err) {
-    console.error(err);
+    console.error('Error fetching roadmaps:', err);
+    res.status(500).json({ message: 'Server error' });
+  }
+};
+
+export const updateTaskStatus = async (req, res) => {
+  const { roadmapId, taskId } = req.params;
+  const { completed } = req.body;
+
+  try {
+    // Validate completed field
+    if (typeof completed !== 'boolean') {
+      return res.status(400).json({ message: 'Completed status must be a boolean' });
+    }
+
+    // Find the roadmap by ID and ensure it belongs to the user
+    const roadmap = await Roadmap.findOne({ _id: roadmapId, userId: req.user.id });
+    if (!roadmap) {
+      return res.status(404).json({ message: 'Roadmap not found or not authorized' });
+    }
+
+    // Convert taskId to number (since it's an index from frontend)
+    const taskIndex = parseInt(taskId, 10);
+    if (isNaN(taskIndex) || taskIndex < 0 || taskIndex >= roadmap.dailyTasks.length) {
+      return res.status(400).json({ message: 'Invalid task ID' });
+    }
+
+    // Update the specific task's completed status
+    roadmap.dailyTasks[taskIndex].completed = completed;
+
+    // Save the updated roadmap
+    await roadmap.save();
+
+    // Return the updated roadmap
+    res.json({ id: roadmap._id, ...roadmap.toObject() });
+  } catch (err) {
+    console.error('Error updating task status:', err);
     res.status(500).json({ message: 'Server error' });
   }
 };

@@ -1,38 +1,124 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
+import axios from "axios";
 import { Calendar, BookOpen, Video, Lightbulb, BarChart, CheckCircle, Circle } from "lucide-react";
 import { motion } from "framer-motion";
 
 function AcademicTask() {
-  const [days, setDays] = useState([
-    "Day 1", "Day 2", "Day 3", "Day 4", "Day 5", "Day 6", "Day 7", "Day 8", "Day 9", "Day 10", "Day 11", "Day 12", "Day 13", "Day 14",
-  ]);
+  const navigate = useNavigate();
+  const [days, setDays] = useState([]);
+  const [subjects, setSubjects] = useState([]);
+  const [tasks, setTasks] = useState([]);
+  const [selectedDay, setSelectedDay] = useState("");
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
 
-  const [subjects, setSubjects] = useState([
-    { id: 1, name: "Mathematics", progress: 45 },
-    { id: 2, name: "Physics", progress: 30 },
-    { id: 3, name: "Chemistry", progress: 65 },
-    { id: 4, name: "Biology", progress: 20 },
-    { id: 5, name: "Computer Science", progress: 75 },
-    { id: 6, name: "History", progress: 10 },
-    { id: 7, name: "Geography", progress: 50 },
-  ]);
+  useEffect(() => {
+    const fetchAcademicRoadmap = async () => {
+      try {
+        const token = localStorage.getItem('token');
+        if (!token) {
+          setError('Please log in to view your roadmap');
+          navigate('/login');
+          return;
+        }
 
-  const [selectedDay, setSelectedDay] = useState("Day 1");
-  const [tasks, setTasks] = useState([
-    { id: 1, subject: 1, day: "Day 1", title: "Complete Algebra exercises 1-10", description: "Textbook pg. 45-48", completed: false, referenceType: "notes" },
-    { id: 2, subject: 1, day: "Day 1", title: "Review quadratic equations", description: "Khan Academy video series", completed: false, referenceType: "video" },
-    { id: 3, subject: 2, day: "Day 1", title: "Read chapter on Newton's Laws", description: "Physics textbook Ch. 3", completed: true, referenceType: "notes" },
-    { id: 4, subject: 3, day: "Day 1", title: "Practice balancing chemical equations", description: "Chemistry Lab tutorial video", completed: false, referenceType: "video" },
-    { id: 5, subject: 4, day: "Day 1", title: "Study cell structure diagrams", description: "Biology handbook pg. 12-15", completed: false, referenceType: "notes" },
-    { id: 6, subject: 5, day: "Day 1", title: "Complete JavaScript exercises", description: "Coding tutorial series part 1", completed: true, referenceType: "video" },
-  ]);
+        console.log('Fetching with token:', token);
+        const response = await axios.get('http://localhost:3000/api/roadmap/user?category=academic', {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+
+        console.log('Response status:', response.status);
+        console.log('Response data:', response.data);
+
+        const roadmaps = response.data;
+        if (!roadmaps.length) {
+          setError('No academic roadmap found');
+          setLoading(false);
+          return;
+        }
+
+        const academicRoadmap = roadmaps[0];
+        console.log('Selected roadmap:', academicRoadmap);
+
+        // Extract days from dailyTasks
+        const roadmapDays = academicRoadmap.dailyTasks.map(task => `Day ${task.day}`);
+        setDays([...new Set(roadmapDays)]);
+        setSelectedDay(roadmapDays[0] || "");
+
+        // Derive subjects from dailyTasks (assuming title is "Subject: Topic")
+        const subjectSet = new Set();
+        academicRoadmap.dailyTasks.forEach(task => {
+          const subject = task.title.split(':')[0]?.trim(); // Extract subject from title
+          if (subject) subjectSet.add(subject);
+        });
+        const syllabusSubjects = Array.from(subjectSet).map((name, index) => ({
+          id: index + 1,
+          name,
+          progress: 0,
+        }));
+        console.log('Derived subjects:', syllabusSubjects);
+        setSubjects(syllabusSubjects.length ? syllabusSubjects : [{ id: 1, name: 'Unknown', progress: 0 }]); // Fallback
+
+        // Map tasks
+        const mappedTasks = academicRoadmap.dailyTasks.map((task, index) => ({
+          id: index + 1,
+          subject: syllabusSubjects.find(s => s.name === task.title.split(':')[0]?.trim())?.id || 1,
+          day: `Day ${task.day}`,
+          title: task.title,
+          description: task.description,
+          completed: task.completed || false,
+          referenceType: task.description.toLowerCase().includes('video') ? 'video' : 'notes',
+        }));
+        console.log('Mapped tasks:', mappedTasks);
+        setTasks(mappedTasks);
+
+        setLoading(false);
+      } catch (err) {
+        console.error('Fetch error:', err.message, err.stack);
+        setError(err.message || 'Failed to load academic roadmap');
+        setLoading(false);
+      }
+    };
+
+    fetchAcademicRoadmap();
+  }, [navigate]);
 
   const filteredTasks = tasks.filter((task) => task.day === selectedDay);
 
-  const toggleTaskCompletion = (taskId) => {
+  const toggleTaskCompletion = async (taskId) => {
+    const task = tasks.find(t => t.id === taskId);
+    const newCompletedStatus = !task.completed;
+  
     setTasks((prev) =>
-      prev.map((task) => (task.id === taskId ? { ...task, completed: !task.completed } : task))
+      prev.map((t) => (t.id === taskId ? { ...t, completed: newCompletedStatus } : t))
     );
+  
+    try {
+      const token = localStorage.getItem('token');
+      const response = await axios.get('http://localhost:3000/api/roadmap/user?category=academic', {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const academicRoadmap = response.data[0];
+  
+      if (!academicRoadmap) {
+        throw new Error('Academic roadmap not found');
+      }
+  
+      // Adjust taskId to zero-based index for backend
+      const backendTaskId = taskId - 1;
+  
+      await axios.patch(
+        `http://localhost:3000/api/roadmap/${academicRoadmap.id}/task/${backendTaskId}`,
+        { completed: newCompletedStatus },
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+    } catch (err) {
+      console.error('Update error:', err);
+      setTasks((prev) =>
+        prev.map((t) => (t.id === taskId ? { ...t, completed: !newCompletedStatus } : t))
+      );
+    }
   };
 
   const commonSuggestions = [
@@ -85,6 +171,9 @@ function AcademicTask() {
       </div>
     );
   };
+
+  if (loading) return <div>Loading...</div>;
+  if (error) return <div className="text-red-500">{error}</div>;
 
   return (
     <motion.div

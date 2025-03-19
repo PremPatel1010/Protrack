@@ -1,43 +1,17 @@
-import React, { useState } from 'react';
-import { Calendar, BookOpen, Video, Lightbulb, BarChart, CheckCircle, Circle, ArrowRight, ArrowLeft } from 'lucide-react';
-import { motion } from 'framer-motion';
+import React, { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
+import axios from "axios";
+import { Calendar, BookOpen, Video, Lightbulb, BarChart, CheckCircle, Circle, ArrowRight, ArrowLeft } from "lucide-react";
+import { motion } from "framer-motion";
 
-function App() {
+function LongTermGoal() {
+  const navigate = useNavigate();
   const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth());
-  const [completedGoals, setCompletedGoals] = useState([]);
+  const [goals, setGoals] = useState([]);
+  const [roadmapItems, setRoadmapItems] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
   const months = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
-
-  const goals = [
-    { id: 1, topic: 'Data Structures', progress: 65 },
-    { id: 2, topic: 'System Design', progress: 40 },
-    { id: 3, topic: 'Cloud Computing', progress: 30 },
-    { id: 4, topic: 'Machine Learning', progress: 25 },
-  ];
-
-  const roadmapItems = [
-    {
-      id: 1,
-      title: 'Master Advanced Algorithms',
-      duration: '4 weeks',
-      completed: false,
-      suggestions: 'Break down complex problems into smaller parts',
-      resources: {
-        videos: ['https://example.com/algo-course'],
-        notes: ['https://example.com/algo-notes'],
-      },
-    },
-    {
-      id: 2,
-      title: 'Build Scalable Systems',
-      duration: '6 weeks',
-      completed: true,
-      suggestions: 'Focus on practical implementations',
-      resources: {
-        videos: ['https://example.com/system-design'],
-        notes: ['https://example.com/architecture-patterns'],
-      },
-    },
-  ];
 
   const motivationalQuotes = [
     { text: "The future belongs to those who believe in the beauty of their dreams.", author: "Eleanor Roosevelt" },
@@ -47,12 +21,113 @@ function App() {
   ];
   const randomQuote = motivationalQuotes[Math.floor(Math.random() * motivationalQuotes.length)];
 
-  const toggleGoalCompletion = (goalId) => {
-    setCompletedGoals((prev) =>
-      prev.includes(goalId)
-        ? prev.filter((id) => id !== goalId)
-        : [...prev, goalId]
+  useEffect(() => {
+    const fetchLongTermGoalRoadmap = async () => {
+      try {
+        const token = localStorage.getItem('token');
+        if (!token) {
+          setError('Please log in to view your roadmap');
+          navigate('/login');
+          return;
+        }
+
+        console.log('Fetching with token:', token);
+        const response = await axios.get('http://localhost:3000/api/roadmap/user?category=long-term', {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+
+        console.log('Response status:', response.status);
+        console.log('Response data:', response.data);
+
+        const roadmaps = response.data;
+        if (!roadmaps.length) {
+          setError('No long-term goal roadmap found');
+          setLoading(false);
+          return;
+        }
+
+        const longTermRoadmap = roadmaps[0];
+        console.log('Selected roadmap:', longTermRoadmap);
+
+        // Derive goals (topics) from dailyTasks
+        const goalSet = new Set();
+        longTermRoadmap.dailyTasks.forEach(task => {
+          const topic = task.title.split(':')[0]?.trim();
+          if (topic) goalSet.add(topic);
+        });
+        const derivedGoals = Array.from(goalSet).map((topic, index) => ({
+          id: index + 1,
+          topic,
+          progress: 0, // Static for now; could calculate from completed tasks
+        }));
+        console.log('Derived goals:', derivedGoals);
+        setGoals(derivedGoals.length ? derivedGoals : [{ id: 1, topic: 'Unknown', progress: 0 }]);
+
+        // Map roadmap items (tasks) from dailyTasks and assign months
+        const startDate = new Date(longTermRoadmap.startDate); // e.g., March 19, 2025
+        const mappedItems = longTermRoadmap.dailyTasks.map((task, index) => {
+          // Calculate the task's date by adding (day - 1) to startDate
+          const taskDate = new Date(startDate);
+          taskDate.setDate(startDate.getDate() + (task.day - 1));
+          const taskMonth = months[taskDate.getMonth()]; // e.g., "April"
+
+          return {
+            id: index + 1,
+            title: task.title,
+            duration: task.duration || 'Unknown duration',
+            completed: task.completed || false,
+            suggestions: task.suggestions || 'No suggestions provided',
+            resources: task.resources || { videos: [], notes: [] },
+            month: task.month || taskMonth, // Use stored month or calculated month
+          };
+        });
+        console.log('Mapped roadmap items:', mappedItems);
+        setRoadmapItems(mappedItems);
+
+        setLoading(false);
+      } catch (err) {
+        console.error('Fetch error:', err.message, err.stack);
+        setError(err.message || 'Failed to load long-term goal roadmap');
+        setLoading(false);
+      }
+    };
+
+    fetchLongTermGoalRoadmap();
+  }, [navigate]);
+
+  const filteredItems = roadmapItems.filter(item => item.month === months[selectedMonth]);
+
+  const toggleGoalCompletion = async (goalId) => {
+    const item = roadmapItems.find(i => i.id === goalId);
+    const newCompletedStatus = !item.completed;
+
+    setRoadmapItems((prev) =>
+      prev.map((i) => (i.id === goalId ? { ...i, completed: newCompletedStatus } : i))
     );
+
+    try {
+      const token = localStorage.getItem('token');
+      const response = await axios.get('http://localhost:3000/api/roadmap/user?category=long-term', {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const longTermRoadmap = response.data[0];
+
+      if (!longTermRoadmap) {
+        throw new Error('Long-term goal roadmap not found');
+      }
+
+      const backendGoalId = goalId - 1; // Adjust to zero-based index
+      await axios.patch(
+        `http://localhost:3000/api/roadmap/${longTermRoadmap.id}/task/${backendGoalId}`,
+        { completed: newCompletedStatus },
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+    } catch (err) {
+      console.error('Update error:', err);
+      setRoadmapItems((prev) =>
+        prev.map((i) => (i.id === goalId ? { ...i, completed: !newCompletedStatus } : i))
+      );
+    }
   };
 
   const GoalList = ({ items }) => {
@@ -71,7 +146,7 @@ function App() {
                 onClick={() => toggleGoalCompletion(item.id)}
                 className="mt-1 flex-shrink-0"
               >
-                {completedGoals.includes(item.id) ? (
+                {item.completed ? (
                   <CheckCircle className="w-5 h-5 text-green-500" />
                 ) : (
                   <Circle className="w-5 h-5 text-gray-400 hover:text-indigo-500 transition-colors" />
@@ -80,9 +155,7 @@ function App() {
               <div>
                 <h3
                   className={`font-medium ${
-                    completedGoals.includes(item.id)
-                      ? "text-green-600 line-through"
-                      : "text-indigo-900"
+                    item.completed ? "text-green-600 line-through" : "text-indigo-900"
                   }`}
                 >
                   {item.title} ({item.duration})
@@ -96,6 +169,9 @@ function App() {
     );
   };
 
+  if (loading) return <div>Loading...</div>;
+  if (error) return <div className="text-red-500">{error}</div>;
+
   return (
     <motion.div
       initial={{ opacity: 0 }}
@@ -104,7 +180,6 @@ function App() {
       className="min-h-screen bg-gradient-to-br from-indigo-50 via-purple-50 to-pink-50 p-6 relative overflow-hidden"
     >
       <div className="max-w-7xl mx-auto relative z-10">
-        {/* Updated Heading */}
         <motion.div
           initial={{ opacity: 0, y: -20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -119,7 +194,6 @@ function App() {
         <div className="flex gap-6">
           {/* Left Sidebar */}
           <div className="w-80 flex-shrink-0 space-y-6">
-            {/* Months Selection */}
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
@@ -165,7 +239,6 @@ function App() {
               </div>
             </motion.div>
 
-            {/* Progress Tracking */}
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
@@ -197,7 +270,6 @@ function App() {
 
           {/* Main Content */}
           <div className="flex-1 max-w-5xl space-y-6">
-            {/* Goals Section */}
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
@@ -207,10 +279,9 @@ function App() {
               <h2 className="text-indigo-900 font-bold mb-4 text-xl">
                 {months[selectedMonth]} Epic Quests
               </h2>
-              <GoalList items={roadmapItems} />
+              <GoalList items={filteredItems} />
             </motion.div>
 
-            {/* Motivational Quotes */}
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
@@ -227,7 +298,6 @@ function App() {
               </div>
             </motion.div>
 
-            {/* Resources */}
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
@@ -239,7 +309,7 @@ function App() {
                 Resource Vault
               </h2>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {roadmapItems.flatMap(item => [
+                {filteredItems.flatMap(item => [
                   ...item.resources.videos.map((video, idx) => ({
                     title: `${item.title} - Vision Scroll ${idx + 1}`,
                     type: 'Video',
@@ -277,4 +347,4 @@ function App() {
   );
 }
 
-export default App;
+export default LongTermGoal;

@@ -137,7 +137,7 @@ const UniversalAcademicRoadmapForm = () => {
         );
 
         console.log('Roadmap created successfully:', response.data);
-        navigate(`/roadmap/${response.data._id}`); // Redirect to roadmap detail page
+        navigate(`/academic`); // Redirect to roadmap detail page
       } catch (err) {
         if (err.response) {
           setSubmissionError(err.response.data.message || 'Failed to create roadmap');
