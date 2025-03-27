@@ -1,15 +1,48 @@
-import React from 'react';
-import { motion } from 'framer-motion';
-import { ArrowRight, Target, Trophy, Brain, Rocket, Star, BookOpen,  } from 'lucide-react';
-import { Link } from 'react-router-dom';
-import HomePage from './HomePage';
+import React from "react";
+import { motion } from "framer-motion";
+import {
+  ArrowRight,
+  Target,
+  Trophy,
+  Brain,
+  Rocket,
+  Star,
+  BookOpen,
+} from "lucide-react";
+import { Link } from "react-router-dom";
+import HomePage from "./HomePage";
+import { useNavigate } from "react-router-dom";
+import { useState, useEffect } from "react";
+import axios from "axios";
+import { checkAuthStatus } from "../utils/auth.js";
 
 function App() {
+  const navigate = useNavigate();
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const authStatus = checkAuthStatus();
+    setIsAuthenticated(authStatus);
+    setLoading(false);
+  }, []);
+
+  const handleButtonClick = () => {
+    if (isAuthenticated) {
+      navigate('/home');
+    } else {
+      navigate('/signup');
+    }
+  };
+
+  if (loading) {
+    return <div className="text-center text-gray-600">Loading...</div>;
+  }
   return (
     <div className="min-h-screen bg-gradient-to-br from-purple-50 via-indigo-50 to-blue-50">
       {/* Navigation */}
       <nav className="container mx-auto px-4 py-2">
-        <motion.div 
+        <motion.div
           initial={{ y: -20, opacity: 0 }}
           animate={{ y: 0, opacity: 1 }}
           transition={{ duration: 0.6 }}
@@ -27,7 +60,7 @@ function App() {
       {/* Hero Section */}
       <div className="container mx-auto px-8 py-16 md:py-24">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-16 items-center">
-          <motion.div 
+          <motion.div
             initial={{ x: -50, opacity: 0 }}
             animate={{ x: 0, opacity: 1 }}
             transition={{ duration: 0.8 }}
@@ -39,28 +72,33 @@ function App() {
                 Journey to Excellence
               </span>
             </h1>
-            
+
             <p className="text-lg text-gray-600 leading-relaxed">
-              More than just academics - ProTrack guides you through a holistic journey of growth. 
-              Set and achieve goals across academics, personal development, and professional skills 
-              with customized roadmaps and intelligent progress tracking.
+              More than just academics - ProTrack guides you through a holistic
+              journey of growth. Set and achieve goals across academics,
+              personal development, and professional skills with customized
+              roadmaps and intelligent progress tracking.
             </p>
 
-            <motion.div 
-              className="flex flex-col sm:flex-row gap-6"
+            <motion.div
+              className="flex flex-col sm:flex-row gap-6 "
               whileHover={{ scale: 1.03 }}
             >
-              <Link to={'/signup'} className="group inline-flex items-center justify-center px-10 py-4 text-lg font-semibold rounded-xl text-white bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 transform transition-all duration-300 shadow-lg hover:shadow-xl">
+              <button
+                onClick={handleButtonClick}
+                className="group inline-flex items-center justify-center px-10 py-4 text-lg font-semibold rounded-xl text-white bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 transform transition-all duration-300 shadow-lg hover:shadow-xl"
+              >
                 Begin Your Journey
                 <ArrowRight className="ml-3 h-5 w-5 group-hover:translate-x-1 transition-transform" />
-              </Link>
+              </button>
             </motion.div>
 
             <div className="grid grid-cols-2 gap-8 pt-6">
-              {[{ icon: BookOpen, text: "Academic Excellence" },
+              {[
+                { icon: BookOpen, text: "Academic Excellence" },
                 { icon: Brain, text: "Personal Growth" },
                 { icon: Star, text: "Skill Development" },
-                { icon: Rocket, text: "Career Preparation" }
+                { icon: Rocket, text: "Career Preparation" },
               ].map((item, index) => (
                 <motion.div
                   key={index}
@@ -76,7 +114,7 @@ function App() {
             </div>
           </motion.div>
 
-          <motion.div 
+          <motion.div
             initial={{ opacity: 0, scale: 0.9 }}
             animate={{ opacity: 1, scale: 1 }}
             transition={{ duration: 0.8 }}
@@ -85,17 +123,17 @@ function App() {
             <div className="absolute -inset-4 bg-gradient-to-r from-indigo-500/20 to-purple-500/20 rounded-full blur-3xl"></div>
             <div className="relative">
               <motion.div
-                animate={{ 
+                animate={{
                   boxShadow: [
                     "0 0 0 0 rgba(99, 102, 241, 0)",
                     "0 0 0 10px rgba(99, 102, 241, 0.1)",
-                    "0 0 0 20px rgba(99, 102, 241, 0)"
-                  ]
+                    "0 0 0 20px rgba(99, 102, 241, 0)",
+                  ],
                 }}
-                transition={{ 
+                transition={{
                   duration: 2,
                   repeat: Infinity,
-                  repeatType: "reverse"
+                  repeatType: "reverse",
                 }}
                 className="rounded-2xl overflow-hidden"
               >
@@ -105,7 +143,7 @@ function App() {
                   className="w-full object-cover rounded-2xl shadow-2xl transform transition-transform hover:scale-105 duration-700"
                 />
               </motion.div>
-              
+
               {/* Animated Elements */}
               <motion.div
                 animate={{ y: [0, -12, 0] }}
@@ -114,7 +152,7 @@ function App() {
               >
                 <Target className="h-6 w-6 text-white" />
               </motion.div>
-              
+
               <motion.div
                 animate={{ scale: [1, 1.1, 1] }}
                 transition={{ duration: 2, repeat: Infinity }}

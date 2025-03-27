@@ -16,7 +16,7 @@ const roadmapSchema = new Schema({
     day: { type: Number, required: true },
     date: { type: Date, required: true },
     title: { type: String, required: true }, // New: Task title
-    description: { type: String, required: true }, // New: Task description
+    description: { type: String, required: true },
     completed: { type: Boolean, default: false },
     reminderSent: { type: Boolean, default: false },
   }],

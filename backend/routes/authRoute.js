@@ -24,4 +24,12 @@ router.get('/me', authMiddleware, getCurrentUser);
 // @access  Private
 router.post('/logout', authMiddleware, logout);
 
+router.get('/verify', authMiddleware, (req, res) => {
+  try {
+    res.status(200).json({ message: 'Token is valid', user: req.user });
+  } catch (err) {
+    res.status(401).json({ message: 'Invalid token' });
+  }
+});
+
 export default router;

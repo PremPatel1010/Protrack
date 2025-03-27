@@ -3,7 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { motion } from 'framer-motion';
 import { BookOpen, Brain, Target, Trophy, ArrowRight } from 'lucide-react';
-
+import Loader from '../components/Loader';
 function FeatureBox({ title, description, icon: Icon, progress, gradient, hasRoadmap }) {
   const navigate = useNavigate();
 
@@ -46,7 +46,7 @@ function FeatureBox({ title, description, icon: Icon, progress, gradient, hasRoa
           onClick={handleClick}
           className="flex items-center gap-2 px-4 py-2 bg-white/90 backdrop-blur-sm text-gray-800 rounded-lg hover:bg-white transition-colors group"
         >
-          Start Now
+          {hasRoadmap ? 'View Roadmap' : 'Create Roadmap'}
           <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
         </button>
         <div className="w-12 h-12 rounded-full bg-white/90 backdrop-blur-sm flex items-center justify-center">
@@ -154,15 +154,24 @@ function Home() {
         roadmaps.forEach((roadmap) => {
           if (roadmap.category === 'academic') status.academic = true;
           if (roadmap.category === 'additional') status.additional = true;
-          if (roadmap.category === 'longterm') status.longterm = true;
+          if (roadmap.category === 'long-term') status.longterm = true;
           if (roadmap.category === 'personality') status.personality = true;
         });
 
         setRoadmapStatus(status);
         setLoading(false);
       } catch (err) {
-        console.error('Fetch error:', err.message);
-        setError('Failed to load roadmap status');
+        if (err.response?.status === 404) {
+          setRoadmapStatus({
+            academic: false,
+            additional: false,
+            longterm: false,
+            personality: false,
+          });
+        } else {
+          console.error('Fetch error:', err.message);
+          setError('Failed to load roadmap status');
+        }
         setLoading(false);
       }
     };
@@ -170,7 +179,7 @@ function Home() {
     fetchRoadmapStatus();
   }, [navigate]);
 
-  if (loading) return <div className="text-center text-gray-600">Loading...</div>;
+  if (loading) return <div className="text-center text-gray-600"><Loader /></div>;  
   if (error) return <div className="text-center text-red-500">{error}</div>;
 
   return (

@@ -8,7 +8,7 @@ const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' });
 
 
 export const generateDailyRoadmap = async (category, formData, startDate) => {
-  const chunkSize = 100; // Generate 100 days at a time
+  const chunkSize = 30; // Generate 100 days at a time
   let allTasks = [];
   let roadmapTitle = '';
   let roadmapDescription = '';
@@ -35,48 +35,67 @@ export const generateDailyRoadmap = async (category, formData, startDate) => {
 You are an expert educational planner. Generate a partial roadmap for days ${startDay} to ${endDay} of a ${totalDays}-day academic plan, evenly distributing the syllabus. Follow these instructions:
 
 Instructions:
-1. **Input**:
-   - Category: "${category}"
-   - Academic Type: "${academicType}"
-   - Level Details: ${JSON.stringify(levelDetails, null, 2)}
-   - Syllabus: ${JSON.stringify(syllabus, null, 2)}
-   - Exam Date: "${examDate}"
-   - Current Level: "${currentLevel}"
-   - Total Duration: ${totalDays} days
-   - Start Date: "${startDate}"
-   - Generate tasks for days ${startDay} to ${endDay} only)
-2. **Output**:
-   - Generate exactly ${daysInChunk} tasks for days ${startDay} to ${endDay}.
-   - Each task must have a "title" (max 10 words) and "description" (max 50 words).
-   - **Syllabus Source**: Since chapter details may not be fully provided, infer a realistic syllabus (e.g., chapter names) by researching typical syllabi for "${academicType}" (e.g., ${levelDetails.standard ? `${levelDetails.standard} ${levelDetails.board}` : levelDetails.courseName || `${levelDetails.degreeName} ${levelDetails.specialization}`}) from educational websites or standards.
-   - Distribute units evenly across ${totalDays} days.
-   - **Task Titles**: Include a specific chapter name in each task title (e.g., "Learn Chapter 1: Atomic Structure").
-   - Mix learning new chapters and revising previous ones, tailored to ${currentLevel}.
-   - Return valid JSON **with no extra text, markdown, or explanations**.
-   - Structure:
-     {
-       "title": "${academicType === 'School' ? `${levelDetails.standard} ${levelDetails.board}` : academicType === 'Diploma' ? `${levelDetails.courseName}` : `${levelDetails.degreeName} ${levelDetails.specialization}`} Academic Roadmap",
-       "description": "A ${totalDays}-day roadmap for ${examDate} exam",
-       "totalDays": ${daysInChunk},
-       "tasks": [
-         {
-           "day": ${startDay},
-           "title": "Learn Chapter X: Topic Name",
-           "description": "Detailed, actionable description for chapter X"
-         },
-         ...
-       ]
-     }
-3. **Rules**:
-   - Output **only valid JSON**.
-   - Days must be sequential from ${startDay} to ${endDay}.
-   - Avoid completing the syllabus before day ${totalDays}.
-   - Don't get resist to complete the entire chapter in a single day. It is very hard for student, so divide the chapter into multiple parts.
-   - Include periodic revision tasks (e.g., "Revise Chapter X: Topic Name").
-   - Spread the chapters across ${totalDays} days, avoiding completion before the end.
-   - Tailor tasks to the category, level details, and ${currentLevel}, progressing logically from previous days if applicable.
-   - Use inferred chapter names based on typical syllabi for the given academic context.
-   - Keep descriptions concise to ensure all ${daysInChunk} tasks are generated.
+
+Input:
+Category: "${category}"
+Academic Type: "${academicType}"
+Level Details: ${JSON.stringify(levelDetails, null, 2)}
+Syllabus: ${JSON.stringify(syllabus, null, 2)}
+Exam Date: "${examDate}"
+Current Level: "${currentLevel}"
+Total Duration: ${totalDays} days
+Start Date: "${startDate}"
+Generate tasks for days ${startDay} to ${endDay} only
+Output:
+Generate exactly ${daysInChunk} tasks for days ${startDay} to ${endDay}.
+Each task must have a "title" (max 10 words) and a "description" (min 200 words, detailed and actionable, e.g., "Focus on balancing chemical equations using examples from the textbook, then solve 5 practice problems on reaction types.").
+Syllabus Source: Since chapter details may not be fully provided, infer a realistic syllabus (e.g., chapter names) by researching typical syllabi for "${academicType}" (e.g., ${levelDetails.standard ? `${levelDetails.standard}${levelDetails.board}` : (levelDetails.courseName || `${levelDetails.degreeName} : ${levelDetails.specialization}`)}) from educational websites or standards.
+Distribute units evenly across ${totalDays} days.
+Task Titles: Include a specific chapter name in each task title (e.g., "Learn Chapter 1: Atomic Structure").
+Mix learning new chapters and revising previous ones, tailored to ${currentLevel}.
+Syllabus List for Sidebar: Provide a list of Subjects (e.g. Maths, Science)to display in the "Mastery Progress" sidebar, covering the entire ${totalDays}-day plan. Each topic should have a "name" and "progress" (set to 0% for now).
+Resources for Bottom Section: For each day, suggest 1-2 relevant resources (e.g., textbook notes, video lectures, practice problems) tailored to the task. Each resource should have a "title", "type" (e.g., "Textbook Notes", "Video Lecture", "Practice Problems"), and a placeholder "link" (e.g., "https://example.com/resource").
+Return valid JSON with no extra text, markdown, or explanations.
+
+Structure:
+{
+  "title": "${academicType === 'School' ? `${levelDetails.standard} ${levelDetails.board}` : academicType === 'Diploma' ? `${levelDetails.courseName}` : `${levelDetails.degreeName} ${levelDetails.specialization}`} Academic Roadmap",
+  "description": "A ${totalDays}-day roadmap for ${examDate} exam",
+  "totalDays": ${daysInChunk},
+  "syllabus": [
+    {
+      "name": "Chapter 1: Topic Name",
+      "progress": 0
+    },
+    ...
+  ],
+  "tasks": [
+    {
+      "day": ${startDay},
+      "title": "Learn Chapter X: Topic Name",
+      "description": "Detailed, actionable description for chapter X, including specific topics and study methods",
+      "resources": [
+        {
+          "title": "Resource Title",
+          "type": "Resource Type",
+          "link": "https://example.com/resource"
+        },
+        ...
+      ]
+    },
+    ...
+  ]
+}
+Rules:
+Output only valid JSON.
+Days must be sequential from ${startDay} to ${endDay}.
+Avoid completing the syllabus before day ${totalDays}.
+Don't attempt to complete an entire chapter in a single day. Divide chapters into multiple parts (e.g., "Learn Chapter 1 Part 1: Atomic Structure Basics").
+Include periodic revision tasks (e.g., "Revise Chapter X: Topic Name").
+Spread the chapters across ${totalDays} days, avoiding completion before the end.
+Tailor tasks to the category, level details, and ${currentLevel}, progressing logically from previous days if applicable.
+Use inferred chapter names based on typical syllabi for the given academic context.
+Ensure descriptions are detailed and actionable, guiding the student on how to approach the task (e.g., "Read textbook pages 10-15 on atomic structure, then solve 5 practice problems on electron configuration.").
 
 Example Input (for days 1-5 of a 15-day plan):
 Category: "academic"
@@ -95,36 +114,99 @@ Example Output:
   "title": "10th CBSE Academic Roadmap",
   "description": "A 15-day roadmap for 2025-06-15 exam",
   "totalDays": 5,
+  "Mastery Progress": [
+    { "name": "Chemistry", "progress": 0 },
+    ...
+  ],
   "tasks": [
     {
       "day": 1,
       "title": "Learn Chapter 1: Chemical Reactions",
-      "description": "Study basics of chemical reactions and equations."
+      "description": "Read textbook pages 1-10 on chemical reactions. Focus on balancing equations and types of reactions. Solve 5 practice problems on balancing chemical equations.",
+      "resources": [
+        {
+          "title": "Chemical Reactions Notes",
+          "type": "Textbook Notes",
+          "link": "https://example.com/chemical-reactions-notes"
+        },
+        {
+          "title": "Balancing Equations Video",
+          "type": "Video Lecture",
+          "link": "https://example.com/balancing-equations-video"
+        }
+      ]
     },
     {
       "day": 2,
       "title": "Learn Chapter 2: Acids and Bases",
-      "description": "Explore properties of acids, bases, and pH scale."
+      "description": "Study properties of acids and bases from textbook pages 11-20. Understand the pH scale and perform a simple pH calculation. Complete 3 practice questions on pH.",
+      "resources": [
+        {
+          "title": "Acids and Bases Guide",
+          "type": "Textbook Notes",
+          "link": "https://example.com/acids-bases-guide"
+        },
+        {
+          "title": "pH Scale Explained",
+          "type": "Video Lecture",
+          "link": "https://example.com/ph-scale-video"
+        }
+      ]
     },
     {
       "day": 3,
       "title": "Learn Chapter 3: Metals and Non-Metals",
-      "description": "Understand properties and reactions of metals."
+      "description": "Explore properties of metals and non-metals on textbook pages 21-30. Focus on physical properties and reactions. Solve 4 practice problems on metal reactivity.",
+      "resources": [
+        {
+          "title": "Metals and Non-Metals Notes",
+          "type": "Textbook Notes",
+          "link": "https://example.com/metals-nonmetals-notes"
+        },
+        {
+          "title": "Metal Reactivity Series",
+          "type": "Practice Problems",
+          "link": "https://example.com/metal-reactivity-problems"
+        }
+      ]
     },
     {
       "day": 4,
       "title": "Revise Chapter 1: Chemical Reactions",
-      "description": "Review balancing equations with practice problems."
+      "description": "Review balancing equations from Chapter 1. Revisit textbook pages 1-10 and solve 5 additional practice problems on reaction types to reinforce learning.",
+      "resources": [
+        {
+          "title": "Chemical Reactions Revision",
+          "type": "Textbook Notes",
+          "link": "https://example.com/chemical-reactions-revision"
+        },
+        {
+          "title": "Reaction Types Quiz",
+          "type": "Practice Problems",
+          "link": "https://example.com/reaction-types-quiz"
+        }
+      ]
     },
     {
       "day": 5,
       "title": "Learn Chapter 4: Carbon Compounds",
-      "description": "Study carbon bonding and simple hydrocarbons."
+      "description": "Study carbon bonding and simple hydrocarbons from textbook pages 31-40. Focus on covalent bonding and nomenclature. Solve 3 practice problems on naming hydrocarbons.",
+      "resources": [
+        {
+          "title": "Carbon Compounds Basics",
+          "type": "Textbook Notes",
+          "link": "https://example.com/carbon-compounds-notes"
+        },
+        {
+          "title": "Hydrocarbon Nomenclature Video",
+          "type": "Video Lecture",
+          "link": "https://example.com/hydrocarbon-nomenclature-video"
+        }
+      ]
     }
   ]
 }
-
-Now, generate a roadmap segment for days ${startDay} to ${endDay}:
+  Now, generate a roadmap segment for days ${startDay} to ${endDay}:
 `;
 
       try {
@@ -148,7 +230,7 @@ Now, generate a roadmap segment for days ${startDay} to ${endDay}:
 
         if (i === 0) {
           roadmapTitle = chunkData.title;
-          roadmapDescription = chunkData.description;
+          roadmapDescription = chunkData.description; 
         }
         allTasks = allTasks.concat(chunkData.tasks);
       } catch (err) {
@@ -192,7 +274,7 @@ Instructions:
    - Generate tasks for days ${startDay} to ${endDay} only
 2. **Output**:
    - Generate ${daysInChunk} tasks for days ${startDay} to ${endDay}.
-   - Each task has a "title" (max 10 words) and "description" (max 150 words).
+   - Each task has a "title" (max 10 words) and "description" (min 200 words).
    - Distribute ${goalsCount} specific goals over ${totalDays} days (~${goalsPerDay.toFixed(2)} goals/day).
    - For this chunk, focus on goals ${startGoalIndex + 1} to ${endGoalIndex} if applicable, or cycle through all goals.
    - Tailor tasks to ${currentLevel} and repeat practice based on ${frequency}.
@@ -416,7 +498,7 @@ Instructions:
    - Generate tasks for days ${startDay} to ${endDay} only
 2. **Output**:
    - Generate ${daysInChunk} tasks for days ${startDay} to ${endDay}.
-   - Each task has a "title" (max 10 words) and "description" (max 30 words).
+   - Each task has a "title" (max 10 words) and "description" (min 200 words).
    - Distribute ${milestoneCount} milestones over ${totalDays} days (~${milestonesPerDay.toFixed(2)} milestones/day).
    - For this chunk, focus on milestones ${startMilestoneIndex + 1} to ${endMilestoneIndex} if applicable, or cycle through all milestones.
    - Tailor tasks to ${currentLevel}, progressing toward "${mainGoal}".
@@ -486,45 +568,140 @@ Now, generate a roadmap segment for days ${startDay} to ${endDay}:
 You are an expert skill development coach. Generate a partial roadmap for days ${startDay} to ${endDay} of a ${totalDays}-day additional skills plan, focusing on ${skillCategory}. Follow these instructions:
 
 Instructions:
-1. **Input**:
-   - Category: "${category}"
-   - Skill Category: "${skillCategory}"
-   - Specific Skill: "${specificSkill}"
-   - Sub-Skills: ${JSON.stringify(subSkills, null, 2)}
-   - Duration: ${totalDays} days
-   - Current Level: "${currentLevel}"
-   - Practice Frequency: "${practiceFrequency}"
-   - Start Date: "${startDate}"
-   - Generate tasks for days ${startDay} to ${endDay} only
-2. **Output**:
-   - Generate ${daysInChunk} tasks for days ${startDay} to ${endDay}.
-   - Each task has a "title" (max 10 words) and "description" (max 30 words).
-   - Distribute ${subSkillCount} sub-skills over ${totalDays} days (~${subSkillsPerDay.toFixed(2)} sub-skills/day).
-   - For this chunk, focus on sub-skills ${startSubSkillIndex + 1} to ${endSubSkillIndex} if applicable, or cycle through all sub-skills.
-   - Tailor tasks to ${currentLevel}, progressing toward mastering "${specificSkill}".
-   - Include a mix of learning new sub-skills and practice tasks, adjusted to ${practiceFrequency}.
-   - Return valid JSON **with no extra text, markdown, or explanations**.
-   - Structure:
-     {
-       "title": "${specificSkill} Skill Development Roadmap",
-       "description": "A ${totalDays}-day plan to master ${specificSkill.toLowerCase()}",
-       "totalDays": ${daysInChunk},
-       "tasks": [
-         {
-           "day": ${startDay},
-           "title": "Task Title",
-           "description": "Detailed, actionable description"
-         },
-         ...
-       ]
-     }
-3. **Rules**:
-   - Output **only valid JSON**.
-   - Days are sequential from ${startDay} to ${endDay}.
-   - Spread sub-skills evenly, avoiding early completion.
-   - Adjust practice frequency (daily, weekly, biweekly) as specified.
 
-Now, generate a roadmap segment for days ${startDay} to ${endDay}:
+Input:
+Category: "${category}"
+Skill Category: "${skillCategory}"
+Specific Skill: "${specificSkill}"
+Sub-Skills: ${JSON.stringify(subSkills, null, 2)}
+Duration: ${totalDays} days
+Current Level: "${currentLevel}"
+Practice Frequency: "${practiceFrequency}"
+Start Date: "${startDate}"
+Generate tasks for days ${startDay} to ${endDay} only
+Output:
+Generate ${daysInChunk} tasks for days ${startDay} to ${endDay}.
+Each task has a "title" (max 10 words) and a "description" (min 300 words, detailed and actionable).
+Distribute ${subSkillCount} sub-skills over ${totalDays} days (~${subSkillsPerDay.toFixed(2)} sub-skills/day).
+For this chunk, focus on sub-skills ${startSubSkillIndex + 1} to ${endSubSkillIndex} if applicable, or cycle through all sub-skills.
+Tailor tasks to ${currentLevel}, progressing toward mastering "${specificSkill}".
+Include a mix of learning new sub-skills and practice tasks, adjusted to ${practiceFrequency}.
+Main Topics for Sidebar (Skill Mastery Progress): Provide exactly 3-4 unique main topics that broadly cover the core areas of ${specificSkill}. Each topic should:
+1. Be distinct and not overlap with other topics
+2. Cover a fundamental aspect of the skill
+3. Be relevant for tracking overall progress
+4. Have a "name" and "progress" (set to 0% for now)
+Skill-Boosting Tips: Provide a list of 3 skill-boosting tips tailored to ${specificSkill}.
+Return valid JSON with no extra text, markdown, or explanations.
+
+Structure : 
+{
+  "title": "${specificSkill} Skill Development Roadmap",
+  "description": "A ${totalDays}-day plan to master ${specificSkill.toLowerCase()}",
+  "totalDays": ${daysInChunk},
+  "mainTopics": [
+    {
+      "name": "Main Topic 1",
+      "progress": 0
+    },
+    {
+      "name": "Main Topic 2",
+      "progress": 0
+    },
+    {
+      "name": "Main Topic 3",
+      "progress": 0
+    }
+  ],
+  "tasks": [
+    {
+      "day": ${startDay},
+      "title": "Task Title",
+      "description": "Detailed, actionable description",
+    },
+    ...
+  ]
+}
+
+Rules:
+Output only valid JSON.
+Days are sequential from ${startDay} to ${endDay}.
+Spread sub-skills evenly, avoiding early completion.
+Adjust practice frequency (daily, weekly, biweekly) as specified.
+For main topics, ensure they are:
+1. Broad enough to encompass multiple sub-skills
+2. Distinct from each other
+3. Fundamental to skill mastery
+4. Limited to 3-4 topics maximum
+Ensure descriptions are detailed and actionable.
+
+
+Example Input (for days 1-5 of a 15-day plan):
+Category: "additional"
+Skill Category: "Language"
+Specific Skill: "Sanskrit"
+Sub-Skills: [ "Sanskrit Verb Conjugations", "Conjugating Verbs (Present Tense)", "Sanskrit Grammar", "Vowel Sandhi", "Devanagari Script", "Shlokas" ]
+Duration: 15 days
+Current Level: "Beginner"
+Practice Frequency: "Daily"
+Start Date: "2025-03-06"
+
+Example Output:
+{
+  "title": "Sanskrit Skill Development Roadmap",
+  "description": "A 15-day plan to master sanskrit",
+  "totalDays": 5,
+  "mainTopics": [
+    {
+      "name": "Grammar",
+      "progress": 0
+    },
+    {
+      "name": "Vocabulary",
+      "progress": 0
+    },
+    {
+      "name": "Script",
+      "progress": 0
+    },
+    {
+      "name": "Pronunciation",
+      "progress": 0
+    }
+  ],
+  "tasks": [
+    {
+      "day": 1,
+      "title": "Learn Sanskrit Verb Conjugations",
+      "description": "Study Sanskrit verb conjugations using a grammar book. Focus on root verbs and their forms. Write 5 sentences using different verbs and check accuracy with an online tool.",
+
+    },
+    {
+      "day": 2,
+      "title": "Practice Conjugating Verbs (Present)",
+      "description": "Practice conjugating verbs in present tense. Use a Sanskrit workbook to conjugate 10 verbs. Speak each sentence aloud to improve pronunciation and fluency.",
+      
+    },
+    {
+      "day": 3,
+      "title": "Learn Sanskrit Grammar Basics",
+      "description": "Study basic Sanskrit grammar rules, focusing on sentence structure. Read a grammar guide and create 5 simple sentences. Check syntax using an online resource.",
+     
+    },
+    {
+      "day": 4,
+      "title": "Practice Vowel Sandhi Rules",
+      "description": "Learn vowel sandhi rules in Sanskrit. Use a reference book to understand vowel combinations. Practice by combining 10 pairs of words and verify results online.",
+      
+    },
+    {
+      "day": 5,
+      "title": "Revise Sanskrit Verb Conjugations",
+      "description": "Review Sanskrit verb conjugations from Day 1. Revisit your grammar book and practice conjugating 5 new verbs. Write 5 sentences and check accuracy with a tool.",
+      
+    }
+  ]
+}
 `;
 
       const result = await model.generateContentStream(prompt);
@@ -594,16 +771,6 @@ Instructions:
    - For "explain", provide a concise explanation (max 30 words) tailored to the roadmap’s category.
 
 Roadmap: ${JSON.stringify(roadmap.dailyTasks.map(t => ({ day: t.day, title: t.title })))}
-
-Example Input:
-User Request: "Move 'Learn Atomic Structure' to Day 5"
-
-Example Output:
-{
-  "action": "move",
-  "title": "Learn Atomic Structure",
-  "day": 5
-}
 
 Now, interpret this request:
 User Request: "${userRequest}"

@@ -19,7 +19,6 @@ export const createRoadmap = async (req, res) => {
     console.log(aiRoadmap);
     const dailyTasks = parseRoadmapText(aiRoadmap, startDate);
 
-    console.log("Code is running")
     const roadmap = new Roadmap({
       userId: req.user.id,
       title: aiRoadmap.title,

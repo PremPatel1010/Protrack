@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import axios from "axios";
 import { Calendar, BookOpen, Video, Lightbulb, BarChart, CheckCircle, Circle, ArrowRight, ArrowLeft } from "lucide-react";
 import { motion } from "framer-motion";
+import RoadmapNavigation from "../components/RoadmapNavigation";
 
 function LongTermGoal() {
   const navigate = useNavigate();
@@ -10,6 +11,7 @@ function LongTermGoal() {
   const [goals, setGoals] = useState([]);
   const [roadmapItems, setRoadmapItems] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [currentPage, setCurrentPage] = useState("LongtermGoals"); // Set the initial page to "LongtermGoals"
   const [error, setError] = useState("");
   const months = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
 
@@ -184,11 +186,12 @@ function LongTermGoal() {
           initial={{ opacity: 0, y: -20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.8 }}
-          className="text-left"
+          className="text-left flex justify-between items-center mb-6"
         >
           <h1 className="text-4xl font-extrabold mb-6 text-indigo-800 drop-shadow-md">
             Epic Goals Odyssey
           </h1>
+          <RoadmapNavigation currentPage={currentPage} />
         </motion.div>
 
         <div className="flex gap-6">

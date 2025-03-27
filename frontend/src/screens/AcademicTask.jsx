@@ -1,8 +1,18 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import axios from "axios";
-import { Calendar, BookOpen, Video, Lightbulb, BarChart, CheckCircle, Circle } from "lucide-react";
+import {
+  Calendar,
+  BookOpen,
+  Video,
+  Lightbulb,
+  BarChart,
+  CheckCircle,
+  Circle,
+} from "lucide-react";
 import { motion } from "framer-motion";
+
+import RoadmapNavigation from "../components/RoadmapNavigation";
 
 function AcademicTask() {
   const navigate = useNavigate();
@@ -12,44 +22,95 @@ function AcademicTask() {
   const [selectedDay, setSelectedDay] = useState("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [studyTips, setStudyTips] = useState([]);
+  const [progress, setProgress] = useState(0);
+  const [currentPage, setCurrentPage] = useState("Academic");
+
+  const generateRandomStudyTip = () => {
+    const tipVariations = {
+      timeManagement: [
+        "Use the Pomodoro Technique: 25min focus + 5min break",
+        "Block schedule your day into 90-minute study sessions",
+        "Prioritize tasks using Eisenhower Matrix (urgent/important)",
+      ],
+      activeLearning: [
+        "Practice spaced repetition for better retention",
+        "Teach concepts to an imaginary student",
+        "Create mind maps to visualize relationships",
+      ],
+      health: [
+        "Hydrate! Drink water every 45 minutes while studying",
+        "Take a 10min walk after every hour of study",
+        "Practice 4-7-8 breathing for stress relief",
+      ],
+      environment: [
+        "Study in different locations for better recall",
+        "Use ambient noise at 60dB for concentration",
+        "Keep your study area at 20-25°C for optimal focus",
+      ],
+      review: [
+        "Do 5min daily reviews of previous material",
+        "Use the Feynman Technique for complex topics",
+        "Create flash cards for key concepts",
+      ],
+    };
+
+    const categories = Object.keys(tipVariations);
+    const randomCategory =
+      categories[Math.floor(Math.random() * categories.length)];
+    const randomTip =
+      tipVariations[randomCategory][
+        Math.floor(Math.random() * tipVariations[randomCategory].length)
+      ];
+
+    return {
+      title: randomCategory.replace(/([A-Z])/g, " $1").trim(),
+      description: randomTip,
+    };
+  };
 
   useEffect(() => {
     const fetchAcademicRoadmap = async () => {
       try {
-        const token = localStorage.getItem('token');
+        const token = localStorage.getItem("token");
         if (!token) {
-          setError('Please log in to view your roadmap');
-          navigate('/login');
+          setError("Please log in to view your roadmap");
+          navigate("/login");
           return;
         }
 
-        console.log('Fetching with token:', token);
-        const response = await axios.get('http://localhost:3000/api/roadmap/user?category=academic', {
-          headers: { Authorization: `Bearer ${token}` },
-        });
+        console.log("Fetching with token:", token);
+        const response = await axios.get(
+          "http://localhost:3000/api/roadmap/user?category=academic",
+          {
+            headers: { Authorization: `Bearer ${token}` },
+          }
+        );
 
-        console.log('Response status:', response.status);
-        console.log('Response data:', response.data);
+        console.log("Response status:", response.status);
+        console.log("Response data:", response.data);
 
         const roadmaps = response.data;
         if (!roadmaps.length) {
-          setError('No academic roadmap found');
+          setError("No academic roadmap found");
           setLoading(false);
           return;
         }
 
         const academicRoadmap = roadmaps[0];
-        console.log('Selected roadmap:', academicRoadmap);
+        console.log("Selected roadmap:", academicRoadmap);
 
         // Extract days from dailyTasks
-        const roadmapDays = academicRoadmap.dailyTasks.map(task => `Day ${task.day}`);
+        const roadmapDays = academicRoadmap.dailyTasks.map(
+          (task) => `Day ${task.day}`
+        );
         setDays([...new Set(roadmapDays)]);
         setSelectedDay(roadmapDays[0] || "");
 
         // Derive subjects from dailyTasks (assuming title is "Subject: Topic")
         const subjectSet = new Set();
-        academicRoadmap.dailyTasks.forEach(task => {
-          const subject = task.title.split(':')[0]?.trim(); // Extract subject from title
+        academicRoadmap.dailyTasks.forEach((task) => {
+          const subject = task.title.split(":")[0]?.trim(); // Extract subject from title
           if (subject) subjectSet.add(subject);
         });
         const syllabusSubjects = Array.from(subjectSet).map((name, index) => ({
@@ -57,26 +118,46 @@ function AcademicTask() {
           name,
           progress: 0,
         }));
-        console.log('Derived subjects:', syllabusSubjects);
-        setSubjects(syllabusSubjects.length ? syllabusSubjects : [{ id: 1, name: 'Unknown', progress: 0 }]); // Fallback
+        console.log("Derived subjects:", syllabusSubjects);
+        setSubjects(
+          syllabusSubjects.length
+            ? syllabusSubjects
+            : [{ id: 1, name: "Unknown", progress: 0 }]
+        ); // Fallback
 
         // Map tasks
         const mappedTasks = academicRoadmap.dailyTasks.map((task, index) => ({
           id: index + 1,
-          subject: syllabusSubjects.find(s => s.name === task.title.split(':')[0]?.trim())?.id || 1,
+          subject:
+            syllabusSubjects.find(
+              (s) => s.name === task.title.split(":")[0]?.trim()
+            )?.id || 1,
           day: `Day ${task.day}`,
           title: task.title,
           description: task.description,
           completed: task.completed || false,
-          referenceType: task.description.toLowerCase().includes('video') ? 'video' : 'notes',
+          referenceType: task.description.toLowerCase().includes("video")
+            ? "video"
+            : "notes",
         }));
-        console.log('Mapped tasks:', mappedTasks);
+        console.log("Mapped tasks:", mappedTasks);
         setTasks(mappedTasks);
 
+        const subjectProgress = syllabusSubjects.map(subject => {
+          const subjectTasks = mappedTasks.filter(task => task.subject === subject.id);
+          const completedTasks = subjectTasks.filter(task => task.completed).length;
+          const progressPercentage = subjectTasks.length > 0 ? (completedTasks / subjectTasks.length) * 100 : 0;
+          return { ...subject, progress: progressPercentage };
+        });
+  
+        setSubjects(subjectProgress);
+
         setLoading(false);
+
+      
       } catch (err) {
-        console.error('Fetch error:', err.message, err.stack);
-        setError(err.message || 'Failed to load academic roadmap');
+        console.error("Fetch error:", err.message, err.stack);
+        setError(err.message || "Failed to load academic roadmap");
         setLoading(false);
       }
     };
@@ -84,53 +165,79 @@ function AcademicTask() {
     fetchAcademicRoadmap();
   }, [navigate]);
 
+  
+
   const filteredTasks = tasks.filter((task) => task.day === selectedDay);
 
+
   const toggleTaskCompletion = async (taskId) => {
-    const task = tasks.find(t => t.id === taskId);
+    const task = tasks.find((t) => t.id === taskId);
     const newCompletedStatus = !task.completed;
-  
+
     setTasks((prev) =>
-      prev.map((t) => (t.id === taskId ? { ...t, completed: newCompletedStatus } : t))
+      prev.map((t) =>
+        t.id === taskId ? { ...t, completed: newCompletedStatus } : t
+      )
     );
-  
+
     try {
-      const token = localStorage.getItem('token');
-      const response = await axios.get('http://localhost:3000/api/roadmap/user?category=academic', {
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      const token = localStorage.getItem("token");
+      const response = await axios.get(
+        "http://localhost:3000/api/roadmap/user?category=academic",
+        {
+          headers: { Authorization: `Bearer ${token}` },
+        }
+      );
       const academicRoadmap = response.data[0];
-  
+
       if (!academicRoadmap) {
-        throw new Error('Academic roadmap not found');
+        throw new Error("Academic roadmap not found");
       }
-  
+
       // Adjust taskId to zero-based index for backend
       const backendTaskId = taskId - 1;
-  
+
       await axios.patch(
         `http://localhost:3000/api/roadmap/${academicRoadmap.id}/task/${backendTaskId}`,
         { completed: newCompletedStatus },
         { headers: { Authorization: `Bearer ${token}` } }
       );
+
+      const updatedSubjects = subjects.map(subject => {
+        const subjectTasks = tasks.map(t => t.id === taskId ? { ...t, completed: newCompletedStatus } : t).filter(task => task.subject === subject.id);
+        const completedTasks = subjectTasks.filter(task => task.completed).length;
+        const progressPercentage = subjectTasks.length > 0 ? (completedTasks / subjectTasks.length) * 100 : 0;
+        return { ...subject, progress: progressPercentage };
+      });
+
+      setSubjects(updatedSubjects);
+
+      
     } catch (err) {
-      console.error('Update error:', err);
+      console.error("Update error:", err);
       setTasks((prev) =>
-        prev.map((t) => (t.id === taskId ? { ...t, completed: !newCompletedStatus } : t))
+        prev.map((t) =>
+          t.id === taskId ? { ...t, completed: !newCompletedStatus } : t
+        )
       );
     }
+    
   };
 
-  const commonSuggestions = [
-    { title: "Time Management", description: "Allocate specific time blocks for focused study" },
-    { title: "Active Learning", description: "Take notes and solve practice problems" },
-    { title: "Regular Reviews", description: "Review concepts weekly to reinforce learning" },
-  ];
 
-  const commonReferences = [
-    { title: "Textbook Notes", type: "Documentation", link: "https://example.com/notes" },
-    { title: "Video Lectures", type: "Video", link: "https://example.com/videos" },
-    { title: "Practice Problems", type: "Documentation", link: "https://example.com/problems" },
+  const commonSuggestions = [
+    {
+      title: "Time Management",
+      description: "Allocate specific time blocks for focused study",
+    },
+    {
+      title: "Active Learning",
+      description: "Take notes and solve practice problems",
+    },
+    {
+      title: "Regular Reviews",
+      description: "Review concepts weekly to reinforce learning",
+    },
   ];
 
   const TaskList = ({ tasks }) => {
@@ -158,7 +265,9 @@ function AcademicTask() {
               <div>
                 <h3
                   className={`font-medium ${
-                    task.completed ? "text-green-600 line-through" : "text-indigo-900"
+                    task.completed
+                      ? "text-green-600 line-through"
+                      : "text-indigo-900"
                   }`}
                 >
                   {task.title}
@@ -187,11 +296,13 @@ function AcademicTask() {
           initial={{ opacity: 0, y: -20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.8 }}
-          className="text-left"
+          className="text-left flex justify-between items-center mb-6"
         >
           <h1 className="text-4xl font-extrabold mb-6 text-indigo-800 drop-shadow-md">
             Academic Task Adventure
           </h1>
+          <RoadmapNavigation currentPage={currentPage} />
+          
         </motion.div>
 
         <div className="flex gap-8">
@@ -240,8 +351,12 @@ function AcademicTask() {
                 {subjects.map((subject) => (
                   <div key={subject.id} className="space-y-2">
                     <div className="flex justify-between items-center">
-                      <span className="text-indigo-800 text-sm font-medium">{subject.name}</span>
-                      <span className="text-indigo-600 text-xs">{subject.progress}%</span>
+                      <span className="text-indigo-800 text-sm font-medium">
+                        {subject.name}
+                      </span>
+                      <span className="text-indigo-600 text-xs">
+                        {subject.progress}%
+                      </span>
                     </div>
                     <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
                       <div
@@ -280,44 +395,22 @@ function AcademicTask() {
                 Brain Boost Tips
               </h2>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {commonSuggestions.map((suggestion, idx) => (
-                  <div key={idx} className="bg-gradient-to-br from-white to-yellow-50 p-4 rounded-lg shadow-sm hover:shadow-md transition-all">
-                    <h3 className="text-indigo-800 font-medium">{suggestion.title}</h3>
-                    <p className="text-gray-700 text-sm mt-1">{suggestion.description}</p>
-                  </div>
-                ))}
-              </div>
-            </motion.div>
-
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.6 }}
-              className="bg-white/90 backdrop-blur-md rounded-xl p-6 shadow-lg border border-indigo-100"
-            >
-              <h2 className="text-indigo-900 font-bold mb-4 text-xl flex items-center gap-2">
-                <BookOpen className="w-6 h-6 text-indigo-600" />
-                Treasure Trove
-              </h2>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {commonReferences.map((reference, idx) => (
-                  <a
-                    key={idx}
-                    href={reference.link}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="bg-gradient-to-br from-white to-indigo-50 p-4 rounded-lg hover:bg-indigo-100 transition-all shadow-sm"
-                  >
-                    <div className="flex items-center gap-2">
-                      {reference.type === "Video" ? (
-                        <Video className="w-5 h-5 text-red-500" />
-                      ) : (
-                        <BookOpen className="w-5 h-5 text-indigo-600" />
-                      )}
-                      <span className="text-indigo-800 font-medium">{reference.title}</span>
+                {[...Array(3)].map((_, idx) => {
+                  const suggestion = generateRandomStudyTip();
+                  return (
+                    <div
+                      key={idx}
+                      className="bg-gradient-to-br from-white to-yellow-50 p-4 rounded-lg shadow-sm hover:shadow-md transition-all"
+                    >
+                      <h3 className="text-indigo-800 font-medium">
+                        {suggestion.title}
+                      </h3>
+                      <p className="text-gray-700 text-sm mt-1">
+                        {suggestion.description}
+                      </p>
                     </div>
-                  </a>
-                ))}
+                  );
+                })}
               </div>
             </motion.div>
           </div>

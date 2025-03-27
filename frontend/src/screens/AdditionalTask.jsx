@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import axios from "axios";
 import { Calendar, BookOpen, Video, Lightbulb, BarChart, CheckCircle, Circle } from "lucide-react";
 import { motion } from "framer-motion";
+import RoadmapNavigation from "../components/RoadmapNavigation";
 
 function AdditionalTask() {
   const navigate = useNavigate();
@@ -12,6 +13,7 @@ function AdditionalTask() {
   const [selectedDay, setSelectedDay] = useState("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [currentPage, setCurrentPage] = useState("Additional");
 
   useEffect(() => {
     const fetchAdditionalTaskRoadmap = async () => {
@@ -185,11 +187,12 @@ function AdditionalTask() {
           initial={{ opacity: 0, y: -20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.8 }}
-          className="text-left"
+          className="text-left flex justify-between items-center mb-6"
         >
           <h1 className="text-4xl font-extrabold mb-6 text-indigo-800 drop-shadow-md">
             Skills Mastery Quest
           </h1>
+          <RoadmapNavigation currentPage={currentPage} />
         </motion.div>
 
         <div className="flex gap-6">
@@ -290,37 +293,7 @@ function AdditionalTask() {
               </div>
             </motion.div>
 
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.6 }}
-              className="bg-white/90 backdrop-blur-md rounded-xl p-6 shadow-lg border border-indigo-100"
-            >
-              <h2 className="text-indigo-900 font-bold mb-4 text-xl flex items-center gap-2">
-                <BookOpen className="w-6 h-6 text-indigo-600" />
-                Resource Vault
-              </h2>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {commonReferences.map((reference, idx) => (
-                  <a
-                    key={idx}
-                    href={reference.link}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="bg-gradient-to-br from-white to-indigo-50 p-4 rounded-lg hover:bg-indigo-100 transition-all shadow-sm"
-                  >
-                    <div className="flex items-center gap-2">
-                      {reference.type === "Video" ? (
-                        <Video className="w-5 h-5 text-red-500" />
-                      ) : (
-                        <BookOpen className="w-5 h-5 text-indigo-600" />
-                      )}
-                      <span className="text-indigo-800 font-medium">{reference.title}</span>
-                    </div>
-                  </a>
-                ))}
-              </div>
-            </motion.div>
+            
           </div>
         </div>
       </div>
