@@ -19,9 +19,7 @@ export const generateDailyRoadmap = async (category, formData, startDate) => {
     const { academicType, levelDetails, syllabus, examDate, currentLevel, totalDays } = formData;
 
     // Validate input
-    if (!syllabus || !Array.isArray(syllabus) || syllabus.length === 0) {
-      throw new Error('Syllabus is missing or invalid');
-    }
+   
     
     const chunks = Math.ceil(totalDays / chunkSize);
 
@@ -814,3 +812,4 @@ Output: In web development, HTML (HyperText Markup Language) is the foundation f
     throw new Error('Gemini chat response failed: ' + err.message);
   }
 };
+

@@ -13,6 +13,7 @@ import {
 import { motion } from "framer-motion";
 
 import RoadmapNavigation from "../components/RoadmapNavigation";
+import Chatbot from "../components/Chatbot";
 
 function AcademicTask() {
   const navigate = useNavigate();
@@ -25,6 +26,7 @@ function AcademicTask() {
   const [studyTips, setStudyTips] = useState([]);
   const [progress, setProgress] = useState(0);
   const [currentPage, setCurrentPage] = useState("Academic");
+  const [currentRoadmapId, setCurrentRoadmapId] = useState(null);
 
   const generateRandomStudyTip = () => {
     const tipVariations = {
@@ -98,6 +100,7 @@ function AcademicTask() {
         }
 
         const academicRoadmap = roadmaps[0];
+        setCurrentRoadmapId(academicRoadmap.id);
         console.log("Selected roadmap:", academicRoadmap);
 
         // Extract days from dailyTasks
@@ -416,6 +419,7 @@ function AcademicTask() {
           </div>
         </div>
       </div>
+      <Chatbot roadmapId={currentRoadmapId} />
     </motion.div>
   );
 }

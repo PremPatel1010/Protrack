@@ -4,6 +4,7 @@ import axios from "axios";
 import { Calendar, BookOpen, Video, Lightbulb, BarChart, CheckCircle, Circle, ArrowRight, ArrowLeft } from "lucide-react";
 import { motion } from "framer-motion";
 import RoadmapNavigation from "../components/RoadmapNavigation";
+import Chatbot from "../components/Chatbot";
 
 function LongTermGoal() {
   const navigate = useNavigate();
@@ -13,6 +14,7 @@ function LongTermGoal() {
   const [loading, setLoading] = useState(true);
   const [currentPage, setCurrentPage] = useState("LongtermGoals"); // Set the initial page to "LongtermGoals"
   const [error, setError] = useState("");
+  const [currentRoadmapId, setCurrentRoadmapId] = useState(null);
   const months = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
 
   const motivationalQuotes = [
@@ -50,6 +52,8 @@ function LongTermGoal() {
 
         const longTermRoadmap = roadmaps[0];
         console.log('Selected roadmap:', longTermRoadmap);
+        setCurrentRoadmapId(longTermRoadmap.id);
+        
 
         // Derive goals (topics) from dailyTasks
         const goalSet = new Set();
@@ -346,6 +350,7 @@ function LongTermGoal() {
           </div>
         </div>
       </div>
+      <Chatbot roadmapId={currentRoadmapId} />
     </motion.div>
   );
 }

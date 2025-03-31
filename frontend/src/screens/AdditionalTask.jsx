@@ -4,6 +4,7 @@ import axios from "axios";
 import { Calendar, BookOpen, Video, Lightbulb, BarChart, CheckCircle, Circle } from "lucide-react";
 import { motion } from "framer-motion";
 import RoadmapNavigation from "../components/RoadmapNavigation";
+import Chatbot from "../components/Chatbot";
 
 function AdditionalTask() {
   const navigate = useNavigate();
@@ -14,6 +15,7 @@ function AdditionalTask() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [currentPage, setCurrentPage] = useState("Additional");
+  const [currentRoadmapId, setCurrentRoadmapId] = useState(null);
 
   useEffect(() => {
     const fetchAdditionalTaskRoadmap = async () => {
@@ -42,6 +44,7 @@ function AdditionalTask() {
 
         const additionalRoadmap = roadmaps[0];
         console.log('Selected roadmap:', additionalRoadmap);
+        setCurrentRoadmapId(additionalRoadmap.id);
 
         // Extract days from dailyTasks
         const roadmapDays = additionalRoadmap.dailyTasks.map(task => `Day ${task.day}`);
@@ -297,6 +300,7 @@ function AdditionalTask() {
           </div>
         </div>
       </div>
+      <Chatbot roadmapId={currentRoadmapId} />
     </motion.div>
   );
 }

@@ -18,6 +18,7 @@ import {
 } from "lucide-react";
 import { motion } from "framer-motion";
 import RoadmapNavigation from "../components/RoadmapNavigation.jsx";
+import Chatbot from "../components/Chatbot";
 
 function PersonalityDevelopment() {
   const navigate = useNavigate();
@@ -28,6 +29,7 @@ function PersonalityDevelopment() {
   const [currentPage, setCurrentPage] = useState("Personality");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [currentRoadmapId, setCurrentRoadmapId] = useState(null);
 
   const motivationalQuotes = [
     {
@@ -74,6 +76,7 @@ function PersonalityDevelopment() {
 
         const personalityRoadmap = roadmaps[0];
         console.log("Selected roadmap:", personalityRoadmap);
+        setCurrentRoadmapId(personalityRoadmap.id);
 
         // Extract days from dailyTasks
         const roadmapDays = personalityRoadmap.dailyTasks.map(
@@ -422,6 +425,7 @@ function PersonalityDevelopment() {
           </div>
         </div>
       </div>
+      <Chatbot roadmapId={currentRoadmapId} />
     </motion.div>
   );
 }

@@ -21,6 +21,10 @@ router.get('/user', authMiddleware, getRoadmaps);
 router.post(
   '/chatbot/:id',
   authMiddleware,
+  [
+    body('action').isString().notEmpty(),
+    body('data').optional().isObject()
+  ],
   chatbotModify
 );
 
