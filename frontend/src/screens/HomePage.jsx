@@ -87,6 +87,12 @@ function Home() {
     longterm: false,
     personality: false,
   });
+  const [roadmapProgress, setRoadmapProgress] = useState({
+    academic: 0,
+    additional: 0,
+    longterm: 0,
+    personality: 0,
+  });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
@@ -96,7 +102,6 @@ function Home() {
       description:
         'Set and track your academic goals with customized completion roadmaps. Monitor your progress and stay on track with your educational journey.',
       icon: BookOpen,
-      progress: 65,
       gradient: 'bg-gradient-to-br from-indigo-600 to-purple-600',
       category: 'academic',
     },
@@ -150,15 +155,31 @@ function Home() {
           longterm: false,
           personality: false,
         };
+        const progress = {
+          academic: 0,
+          additional: 0,
+          longterm: 0,
+          personality: 0,
+        };
 
         roadmaps.forEach((roadmap) => {
-          if (roadmap.category === 'academic') status.academic = true;
-          if (roadmap.category === 'additional') status.additional = true;
-          if (roadmap.category === 'long-term') status.longterm = true;
-          if (roadmap.category === 'personality') status.personality = true;
+          let category = roadmap.category;
+          if (category === 'long-term') category = 'longterm';
+          
+          if (category in status) {
+            status[category] = true;
+            
+            // Calculate progress based on completed tasks
+            if (roadmap.dailyTasks && roadmap.dailyTasks.length > 0) {
+              const completedTasks = roadmap.dailyTasks.filter(task => task.completed).length;
+              const totalTasks = roadmap.dailyTasks.length;
+              progress[category] = totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0;
+            }
+          }
         });
 
         setRoadmapStatus(status);
+        setRoadmapProgress(progress);
         setLoading(false);
       } catch (err) {
         if (err.response?.status === 404) {
@@ -204,6 +225,7 @@ function Home() {
               <FeatureBox
                 key={index}
                 {...feature}
+                progress={roadmapProgress[feature.category]} // Changed to use dynamic progress
                 hasRoadmap={roadmapStatus[feature.category]}
               />
             ))}
@@ -219,7 +241,7 @@ function Home() {
               <ProgressBar
                 key={index}
                 label={feature.title}
-                progress={feature.progress}
+                progress={roadmapProgress[feature.category]}
                 gradient={feature.gradient}
               />
             ))}
@@ -231,7 +253,7 @@ function Home() {
             </div>
           </motion.div>
         </div>
-     23</div>
+     </div>
     </motion.div>
   );
 }

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect , useRef} from "react";
 import { useNavigate } from "react-router-dom";
 import axios from "axios";
 import {
@@ -15,6 +15,8 @@ import {
   Wrench,
   Target,
   User,
+  Bell,
+  BellRing
 } from "lucide-react";
 import { motion } from "framer-motion";
 import RoadmapNavigation from "../components/RoadmapNavigation.jsx";
@@ -30,6 +32,14 @@ function PersonalityDevelopment() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [currentRoadmapId, setCurrentRoadmapId] = useState(null);
+  const [reminderTime, setReminderTime] = useState(
+    localStorage.getItem('reminderTime') || "10:23"
+  );
+  const [reminderEnabled, setReminderEnabled] = useState(
+    localStorage.getItem('reminderEnabled') === 'true'
+  );
+  const reminderRef = useRef(null);
+
 
   const motivationalQuotes = [
     {
@@ -251,6 +261,80 @@ function PersonalityDevelopment() {
     hover: { scale: 1.05, transition: { duration: 0.2 } },
   };
 
+  const handleTimeChange = (time) => {
+    setReminderTime(time);
+    localStorage.setItem('reminderTime', time);
+  };
+
+  const toggleReminder = (enabled) => {
+    setReminderEnabled(enabled);
+    localStorage.setItem('reminderEnabled', enabled);
+  };
+
+  useEffect(() => {
+    if (!reminderEnabled) {
+      if (reminderRef.current) {
+        clearTimeout(reminderRef.current);
+        reminderRef.current = null;
+      }
+      return;
+    }
+
+    let lastNotificationDate = null;
+    
+    const checkReminder = () => {
+      const now = new Date();
+      const [hours, minutes] = reminderTime.split(':').map(Number);
+      const reminderDate = new Date();
+      reminderDate.setHours(hours, minutes, 0, 0);
+
+      if (now > reminderDate) {
+        reminderDate.setDate(reminderDate.getDate() + 1);
+      }
+
+      const timeUntilReminder = reminderDate - now;
+
+      reminderRef.current = setTimeout(() => {
+        const today = new Date().toDateString();
+        
+        // Only show notification if we haven't shown one today
+        if (!lastNotificationDate || lastNotificationDate !== today) {
+          const incompleteTasks = tasks.filter(t => !t.completed && t.day === selectedDay);
+          
+          if (incompleteTasks.length > 0) {
+            if (Notification.permission === 'granted') {
+              new Notification('Personality Development Reminder', {
+                body: `You have ${incompleteTasks.length} incomplete personality tasks for Day ${selectedDay}`,
+                icon: '/logo192.png'
+              });
+              lastNotificationDate = today;
+            } else if (Notification.permission !== 'denied') {
+              Notification.requestPermission().then(permission => {
+                if (permission === 'granted') {
+                  new Notification('Personality Development Reminder', {
+                    body: `You have ${incompleteTasks.length} incomplete personality tasks for Day ${selectedDay}`,
+                    icon: '/logo192.png'
+                  });
+                  lastNotificationDate = today;
+                }
+              });
+            }
+          }
+        }
+        
+        checkReminder(); // Schedule next check
+      }, timeUntilReminder);
+    };
+
+    checkReminder();
+
+    return () => {
+      if (reminderRef.current) {
+        clearTimeout(reminderRef.current);
+      }
+    };
+  }, [reminderEnabled, reminderTime, tasks, selectedDay]);
+
   if (loading) return <div>Loading...</div>;
   if (error) return <div className="text-red-500">{error}</div>;
 
@@ -387,6 +471,43 @@ function PersonalityDevelopment() {
                 ))}
               </div>
             </motion.div>
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.6 }}
+              className="bg-white/90 backdrop-blur-md rounded-xl p-6 shadow-lg border border-indigo-100"
+            >
+              <h2 className="text-indigo-900 font-bold mb-4 flex items-center gap-2 text-lg">
+                {reminderEnabled ? (
+                  <BellRing className="w-6 h-6 text-indigo-600" />
+                ) : (
+                  <Bell className="w-6 h-6 text-indigo-600" />
+                )}
+                Daily Reminder
+              </h2>
+              <div className="space-y-4">
+                <div className="flex items-center gap-2">
+                  <input
+                    type="time"
+                    value={reminderTime}
+                    onChange={(e) => handleTimeChange(e.target.value)}
+                    className="border border-indigo-200 rounded-lg p-2 text-sm"
+                    disabled={!reminderEnabled}
+                  />
+                  <button
+                    onClick={() => toggleReminder(!reminderEnabled)}
+                    className={`p-2 rounded-lg ${reminderEnabled ? 'bg-indigo-600 text-white' : 'bg-indigo-100 text-indigo-700'}`}
+                  >
+                    {reminderEnabled ? 'ON' : 'OFF'}
+                  </button>
+                </div>
+                <p className="text-xs text-indigo-700">
+                  {reminderEnabled 
+                    ? `Reminder set for ${reminderTime} daily`
+                    : 'Enable to get daily personality reminders'}
+                </p>
+              </div>
+            </motion.div>
           </div>
 
           {/* Main Content */}
@@ -431,3 +552,6 @@ function PersonalityDevelopment() {
 }
 
 export default PersonalityDevelopment;
+
+
+  

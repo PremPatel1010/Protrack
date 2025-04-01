@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import axios from "axios";
 import {
@@ -14,6 +14,7 @@ import { motion } from "framer-motion";
 
 import RoadmapNavigation from "../components/RoadmapNavigation";
 import Chatbot from "../components/Chatbot";
+import { Bell, BellRing } from "lucide-react";
 
 function AcademicTask() {
   const navigate = useNavigate();
@@ -27,6 +28,13 @@ function AcademicTask() {
   const [progress, setProgress] = useState(0);
   const [currentPage, setCurrentPage] = useState("Academic");
   const [currentRoadmapId, setCurrentRoadmapId] = useState(null);
+  const [reminderTime, setReminderTime] = useState(
+    localStorage.getItem('reminderTime') || "10:23"
+  );
+  const [reminderEnabled, setReminderEnabled] = useState(
+    localStorage.getItem('reminderEnabled') === 'true'
+  );
+  const reminderRef = useRef(null);
 
   const generateRandomStudyTip = () => {
     const tipVariations = {
@@ -81,16 +89,12 @@ function AcademicTask() {
           return;
         }
 
-        console.log("Fetching with token:", token);
         const response = await axios.get(
           "http://localhost:3000/api/roadmap/user?category=academic",
           {
             headers: { Authorization: `Bearer ${token}` },
           }
         );
-
-        console.log("Response status:", response.status);
-        console.log("Response data:", response.data);
 
         const roadmaps = response.data;
         if (!roadmaps.length) {
@@ -101,7 +105,6 @@ function AcademicTask() {
 
         const academicRoadmap = roadmaps[0];
         setCurrentRoadmapId(academicRoadmap.id);
-        console.log("Selected roadmap:", academicRoadmap);
 
         // Extract days from dailyTasks
         const roadmapDays = academicRoadmap.dailyTasks.map(
@@ -110,56 +113,67 @@ function AcademicTask() {
         setDays([...new Set(roadmapDays)]);
         setSelectedDay(roadmapDays[0] || "");
 
-        // Derive subjects from dailyTasks (assuming title is "Subject: Topic")
-        const subjectSet = new Set();
-        academicRoadmap.dailyTasks.forEach((task) => {
-          const subject = task.title.split(":")[0]?.trim(); // Extract subject from title
-          if (subject) subjectSet.add(subject);
-        });
-        const syllabusSubjects = Array.from(subjectSet).map((name, index) => ({
+        // Get syllabus from formData
+        const syllabus = academicRoadmap.formData?.syllabus || {};
+        console.log(syllabus); // Verify the syllabus structure
+        
+        // Extract subject names from syllabus object
+        const subjectNames = Object.values(syllabus).map(item => item.name);
+        
+        // Map subjects from syllabus
+        const syllabusSubjects = subjectNames.map((name, index) => ({
           id: index + 1,
-          name,
-          progress: 0,
+          name: name,
+          progress: 0
         }));
-        console.log("Derived subjects:", syllabusSubjects);
-        setSubjects(
-          syllabusSubjects.length
-            ? syllabusSubjects
-            : [{ id: 1, name: "Unknown", progress: 0 }]
-        ); // Fallback
+        console.log(syllabusSubjects); // Verify the subjects structure
 
-        // Map tasks
-        const mappedTasks = academicRoadmap.dailyTasks.map((task, index) => ({
-          id: index + 1,
-          subject:
-            syllabusSubjects.find(
-              (s) => s.name === task.title.split(":")[0]?.trim()
-            )?.id || 1,
-          day: `Day ${task.day}`,
-          title: task.title,
-          description: task.description,
-          completed: task.completed || false,
-          referenceType: task.description.toLowerCase().includes("video")
-            ? "video"
-            : "notes",
-        }));
-        console.log("Mapped tasks:", mappedTasks);
-        setTasks(mappedTasks);
-
+        // Calculate progress for each subject
         const subjectProgress = syllabusSubjects.map(subject => {
-          const subjectTasks = mappedTasks.filter(task => task.subject === subject.id);
+          // Count completed tasks for this subject - use exact match on subject name
+          const subjectTasks = academicRoadmap.dailyTasks.filter(task => {
+            // Split task title at colon and trim whitespace
+            const [taskSubject] = task.title.split(':').map(part => part.trim());
+            return taskSubject === subject.name;
+          });
+          
           const completedTasks = subjectTasks.filter(task => task.completed).length;
-          const progressPercentage = subjectTasks.length > 0 ? (completedTasks / subjectTasks.length) * 100 : 0;
-          return { ...subject, progress: progressPercentage };
+          const progressPercentage = subjectTasks.length > 0 
+            ? Math.round((completedTasks / subjectTasks.length) * 100)
+            : 0;
+          
+          return { 
+            ...subject, 
+            progress: progressPercentage 
+          };
         });
-  
+
         setSubjects(subjectProgress);
 
-        setLoading(false);
+        // Map tasks with proper subject references
+        const mappedTasks = academicRoadmap.dailyTasks.map((task, index) => {
+          const [taskSubject] = task.title.split(':').map(part => part.trim());
+          const matchingSubject = syllabusSubjects.find(subject => 
+            subject.name === taskSubject
+          );
+          
+          return {
+            id: index + 1,
+            subject: matchingSubject?.id || 1,
+            day: `Day ${task.day}`,
+            title: task.title,
+            description: task.description,
+            completed: task.completed || false,
+            referenceType: task.description.toLowerCase().includes("video")
+              ? "video"
+              : "notes",
+          };
+        });
 
-      
+        setTasks(mappedTasks);
+        setLoading(false);
       } catch (err) {
-        console.error("Fetch error:", err.message, err.stack);
+        console.error("Fetch error:", err);
         setError(err.message || "Failed to load academic roadmap");
         setLoading(false);
       }
@@ -207,9 +221,20 @@ function AcademicTask() {
       );
 
       const updatedSubjects = subjects.map(subject => {
-        const subjectTasks = tasks.map(t => t.id === taskId ? { ...t, completed: newCompletedStatus } : t).filter(task => task.subject === subject.id);
+        const subjectTasks = tasks.map(t => {
+          if (t.id === taskId) {
+            return { ...t, completed: newCompletedStatus };
+          }
+          return t;
+        }).filter(task => {
+          const [taskSubject] = task.title.split(':').map(part => part.trim());
+          return taskSubject === subject.name;
+        });
+        
         const completedTasks = subjectTasks.filter(task => task.completed).length;
-        const progressPercentage = subjectTasks.length > 0 ? (completedTasks / subjectTasks.length) * 100 : 0;
+        const progressPercentage = subjectTasks.length > 0 
+          ? Math.round((completedTasks / subjectTasks.length) * 100)
+          : 0;
         return { ...subject, progress: progressPercentage };
       });
 
@@ -283,6 +308,74 @@ function AcademicTask() {
       </div>
     );
   };
+
+  useEffect(() => {
+    if (!reminderEnabled) {
+      if (reminderRef.current) {
+        clearTimeout(reminderRef.current);
+        reminderRef.current = null;
+      }
+      return;
+    }
+  
+    const checkReminder = () => {
+      const now = new Date();
+      const [hours, minutes] = reminderTime.split(':').map(Number);
+      const reminderDate = new Date();
+      reminderDate.setHours(hours, minutes, 0, 0);
+  
+      // If time has passed today, set for tomorrow
+      if (now > reminderDate) {
+        reminderDate.setDate(reminderDate.getDate() + 1);
+      }
+  
+      const timeUntilReminder = reminderDate - now;
+  
+      reminderRef.current = setTimeout(() => {
+        // Check if there are incomplete tasks
+        const incompleteTasks = tasks.filter(t => !t.completed && t.day === selectedDay);
+        
+        if (incompleteTasks.length > 0) {
+          if (Notification.permission === 'granted') {
+            new Notification('Task Reminder', {
+              body: `You have ${incompleteTasks.length} incomplete tasks for ${selectedDay}`,
+              icon: '/logo192.png'
+            });
+          } else if (Notification.permission !== 'denied') {
+            Notification.requestPermission().then(permission => {
+              if (permission === 'granted') {
+                new Notification('Task Reminder', {
+                  body: `You have ${incompleteTasks.length} incomplete tasks for ${selectedDay}`,
+                  icon: '/logo192.png'
+                });
+              }
+            });
+          }
+        }
+  
+        // Don't automatically set next reminder here
+      }, timeUntilReminder);
+    };
+  
+    checkReminder();
+  
+    return () => {
+      if (reminderRef.current) {
+        clearTimeout(reminderRef.current);
+      }
+    };
+  }, [reminderEnabled, reminderTime, tasks, selectedDay]);
+  
+  const handleTimeChange = (time) => {
+    setReminderTime(time);
+    localStorage.setItem('reminderTime', time);
+  };
+  const toggleReminder = (enabled) => {
+    setReminderEnabled(enabled);
+    localStorage.setItem('reminderEnabled', enabled);
+  };
+
+  
 
   if (loading) return <div>Loading...</div>;
   if (error) return <div className="text-red-500">{error}</div>;
@@ -371,6 +464,45 @@ function AcademicTask() {
                 ))}
               </div>
             </motion.div>
+          
+
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.6 }}
+              className="bg-white/90 backdrop-blur-md rounded-xl p-6 shadow-lg border border-indigo-100"
+            >
+              <h2 className="text-indigo-900 font-bold mb-4 flex items-center gap-2 text-lg">
+                {reminderEnabled ? (
+                  <BellRing className="w-6 h-6 text-indigo-600" />
+                ) : (
+                  <Bell className="w-6 h-6 text-indigo-600" />
+                )}
+                Daily Reminder 
+              </h2>
+              <div className="space-y-4">
+                <div className="flex items-center gap-2">
+                  <input
+                    type="time"
+                    value={reminderTime}
+                    onChange={(e) => handleTimeChange(e.target.value)}
+                    className="border border-indigo-200 rounded-lg p-2 text-sm"
+                    disabled={!reminderEnabled}
+                  />
+                  <button
+                    onClick={() => toggleReminder(!reminderEnabled)}
+                    className={`p-2 rounded-lg ${reminderEnabled ? 'bg-indigo-600 text-white' : 'bg-indigo-100 text-indigo-700'}`}
+                  >
+                    {reminderEnabled ? 'ON' : 'OFF'}
+                  </button>
+                </div>
+                <p className="text-xs text-indigo-700">
+                  {reminderEnabled 
+                    ? `Reminder set for ${reminderTime} daily`
+                    : 'Enable to get daily task reminders'}
+                </p>
+              </div>
+            </motion.div>
           </div>
 
           {/* Main Content */}
@@ -425,3 +557,7 @@ function AcademicTask() {
 }
 
 export default AcademicTask;
+
+
+// Reminder effect
+

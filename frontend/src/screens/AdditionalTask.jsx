@@ -1,10 +1,11 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import axios from "axios";
 import { Calendar, BookOpen, Video, Lightbulb, BarChart, CheckCircle, Circle } from "lucide-react";
 import { motion } from "framer-motion";
 import RoadmapNavigation from "../components/RoadmapNavigation";
 import Chatbot from "../components/Chatbot";
+import { Bell, BellRing } from "lucide-react"; // Add these to your existing lucide-react imports
 
 function AdditionalTask() {
   const navigate = useNavigate();
@@ -16,6 +17,9 @@ function AdditionalTask() {
   const [error, setError] = useState("");
   const [currentPage, setCurrentPage] = useState("Additional");
   const [currentRoadmapId, setCurrentRoadmapId] = useState(null);
+  const [reminderTime, setReminderTime] = useState("18:00");
+  const [reminderEnabled, setReminderEnabled] = useState(false);
+  const reminderRef = useRef(null);
 
   useEffect(() => {
     const fetchAdditionalTaskRoadmap = async () => {
@@ -88,6 +92,59 @@ function AdditionalTask() {
 
     fetchAdditionalTaskRoadmap();
   }, [navigate]);
+
+  useEffect(() => {
+    if (!reminderEnabled) {
+      if (reminderRef.current) {
+        clearTimeout(reminderRef.current);
+        reminderRef.current = null;
+      }
+      return;
+    }
+
+    const checkReminder = () => {
+      const now = new Date();
+      const [hours, minutes] = reminderTime.split(':').map(Number);
+      const reminderDate = new Date();
+      reminderDate.setHours(hours, minutes, 0, 0);
+
+      if (now > reminderDate) {
+        reminderDate.setDate(reminderDate.getDate() + 1);
+      }
+
+      const timeUntilReminder = reminderDate - now;
+
+      reminderRef.current = setTimeout(() => {
+        const incompleteTasks = tasks.filter(t => !t.completed && t.day === selectedDay);
+        
+        if (incompleteTasks.length > 0) {
+          if (Notification.permission === 'granted') {
+            new Notification('Skill Reminder', {
+              body: `You have ${incompleteTasks.length} incomplete skill tasks for ${selectedDay}`,
+              icon: '/logo192.png'
+            });
+          } else if (Notification.permission !== 'denied') {
+            Notification.requestPermission().then(permission => {
+              if (permission === 'granted') {
+                new Notification('Skill Reminder', {
+                  body: `You have ${incompleteTasks.length} incomplete skill tasks for ${selectedDay}`,
+                  icon: '/logo192.png'
+                });
+              }
+            });
+          }
+        }
+      }, timeUntilReminder);
+    };
+
+    checkReminder();
+
+    return () => {
+      if (reminderRef.current) {
+        clearTimeout(reminderRef.current);
+      }
+    };
+  }, [reminderEnabled, reminderTime, tasks, selectedDay]);
 
   const filteredTasks = tasks.filter((task) => task.day === selectedDay);
 
@@ -255,6 +312,43 @@ function AdditionalTask() {
                     </div>
                   </div>
                 ))}
+              </div>
+            </motion.div>
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.6 }}
+              className="bg-white/90 backdrop-blur-md rounded-xl p-4 shadow-lg border border-indigo-100"
+            >
+              <h2 className="text-indigo-900 font-bold mb-4 flex items-center gap-2 text-lg">
+                {reminderEnabled ? (
+                  <BellRing className="w-6 h-6 text-indigo-600" />
+                ) : (
+                  <Bell className="w-6 h-6 text-indigo-600" />
+                )}
+                Daily Reminder
+              </h2>
+              <div className="space-y-4">
+                <div className="flex items-center gap-2">
+                  <input
+                    type="time"
+                    value={reminderTime}
+                    onChange={(e) => setReminderTime(e.target.value)}
+                    className="border border-indigo-200 rounded-lg p-2 text-sm"
+                    disabled={!reminderEnabled}
+                  />
+                  <button
+                    onClick={() => setReminderEnabled(!reminderEnabled)}
+                    className={`p-2 rounded-lg ${reminderEnabled ? 'bg-indigo-600 text-white' : 'bg-indigo-100 text-indigo-700'}`}
+                  >
+                    {reminderEnabled ? 'ON' : 'OFF'}
+                  </button>
+                </div>
+                <p className="text-xs text-indigo-700">
+                  {reminderEnabled 
+                    ? `Reminder set for ${reminderTime} daily`
+                    : 'Enable to get daily skill reminders'}
+                </p>
               </div>
             </motion.div>
           </div>

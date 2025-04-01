@@ -230,13 +230,15 @@ export const chatbotModify = async (req, res) => {
               });
           }
           const formData = {
-            academicType: roadmap.academicType,
-            levelDetails: roadmap.levelDetails,
-            syllabus: roadmap.syllabus,
-            examDate: roadmap.examDate,
-            currentLevel: roadmap.currentLevel,
-            totalDays: roadmap.totalDays,
+            academicType: roadmap.formData.academicType,
+            levelDetails: roadmap.formData.levelDetails,
+            syllabus: roadmap.formData.syllabus,
+            examDate: roadmap.formData.examDate,
+            currentLevel: roadmap.formData.currentLevel,
+            totalDays: roadmap.totalDays, // This might be at root level
           };
+          console.log(roadmap)
+          console.log(formData);
           try {
             const newAiRoadmap = await generateDailyRoadmap(
               roadmap.category,
