@@ -1,0 +1,9 @@
+services:
+  - type: web
+    name: project-jp
+    env: node
+    buildCommand: npm install && npm run build
+    startCommand: serve -s build
+    envVars:
+      - key: NODE_ENV
+        value: production
