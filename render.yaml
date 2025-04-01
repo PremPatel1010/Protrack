@@ -2,8 +2,14 @@ services:
   - type: web
     name: project-jp
     env: node
-    buildCommand: npm install && npm run build
-    startCommand: serve -s build
+    buildCommand: |
+      cd frontend && npm install && npm run build
+      cd ../backend && npm install
+    startCommand: npm start
+    rootDir: backend
     envVars:
       - key: NODE_ENV
         value: production
+      - key: PORT
+        value: 3000
+      # Add other environment variables here
