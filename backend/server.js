@@ -30,11 +30,11 @@ app.get('/', (req, res) => {
 // Add this after all your API routes
 if (process.env.NODE_ENV === 'production') {
   // Serve static files from the React frontend app
-  app.use(express.static(path.join(__dirname, '../frontend/build')));
+  app.use(express.static(path.join(__dirname, '../frontend/dist')));
 
   // Handle React routing, return all requests to React app
   app.get('*', (req, res) => {
-    res.sendFile(path.join(__dirname, '../frontend/build', 'index.html'));
+    res.sendFile(path.join(__dirname, '../frontend/dist', 'index.html'));
   });
 }
 
