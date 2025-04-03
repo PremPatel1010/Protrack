@@ -12,4 +12,11 @@ services:
         value: production
       - key: PORT
         value: 3000
-      # Add other environment variables here
+      - key: MONGODB_URI
+        value: mongodb+srv://prem1010yt:LuOACHTZq6PUymPk@protrack.o5u9a.mongodb.net/?retryWrites=true&w=majority&appName=ProTrack
+      - key: JWT_SECRET
+        value: SAMBSADASHIV
+      - key: DEEPSEEK_API_KEY
+        value: sk-44736abbd9794fdc93f172948f0b0550
+      - key: GOOGLE_GEMINI_KEY
+        value: AIzaSyAPk4U8tLR0-2McNk0U0knxb40WiC8OI1E

@@ -34,9 +34,9 @@ app.get('/', (req, res) => {
 
 // Add this after all your API routes
 if (process.env.NODE_ENV === 'production') {
-  const staticPath = path.join(__dirname, '../frontend/dist');
+  const staticPath = path.join(__dirname, 'public');
   app.use(express.static(staticPath));
-
+  
   app.get('*', (req, res) => {
     res.sendFile(path.join(staticPath, 'index.html'));
   });

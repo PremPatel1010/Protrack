@@ -6,10 +6,12 @@ export default defineConfig({
   plugins: [react()],
   base: '/',
   build: {
-    outDir: path.join(__dirname, '../backend/public'),
+    outDir: path.resolve(__dirname, '../backend/public'),
     emptyOutDir: true,
     rollupOptions: {
-      input: path.join(__dirname, 'index.html')
+      input: {
+        main: path.resolve(__dirname, 'index.html')
+      }
     }
   }
 })
