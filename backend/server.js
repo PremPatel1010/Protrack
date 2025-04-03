@@ -14,7 +14,7 @@ const app = express();
 
 // Add these right after imports
 const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+const _dirname = path.dirname(__filename);
 // Middleware
 app.use(cors());
 app.use(express.json());
@@ -34,11 +34,9 @@ app.get('/', (req, res) => {
 
 // Add this after all your API routes
 if (process.env.NODE_ENV === 'production') {
-  const staticPath = path.join(__dirname, 'public');
-  app.use(express.static(staticPath));
-  
+  app.use(express.static(path.join(_dirname, "/frontend/dist")));
   app.get('*', (req, res) => {
-    res.sendFile(path.join(staticPath, 'index.html'));
+    res.sendFile(path.resolve(_dirname, "frontend", "dist",'index.html'));
   });
 }
 
