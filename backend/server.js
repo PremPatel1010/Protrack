@@ -1,6 +1,8 @@
 import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
+import path from 'path';
+import { fileURLToPath } from 'url';
 import connectDB from './config/db.js';
 import authRoutes from './routes/authRoute.js';
 import roadmapRoutes from './routes/roadmapRoute.js';
@@ -10,6 +12,9 @@ dotenv.config();
 
 const app = express();
 
+// Add these right after imports
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 // Middleware
 app.use(cors());
 app.use(express.json());
@@ -29,14 +34,15 @@ app.get('/', (req, res) => {
 
 // Add this after all your API routes
 if (process.env.NODE_ENV === 'production') {
-  // Serve static files from the React frontend app
-  app.use(express.static(path.join(__dirname, '../frontend/dist')));
-
-  // Handle React routing, return all requests to React app
+  // Set static folder
+  const staticPath = path.resolve(__dirname, '../../frontend/dist');
+  app.use(express.static(staticPath));
+  
   app.get('*', (req, res) => {
-    res.sendFile(path.join(__dirname, '../frontend/dist', 'index.html'));
+    res.sendFile(path.join(staticPath, 'index.html'));
   });
 }
 
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+
