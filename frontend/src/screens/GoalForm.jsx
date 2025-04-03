@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import { BookOpen, ArrowRight } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import axios from 'axios';
+import axios from '../lib/axios.js'
 
 const LongTermGoalRoadmapForm = () => {
   const navigate = useNavigate();
@@ -87,7 +87,7 @@ const LongTermGoalRoadmapForm = () => {
         }
 
         const response = await axios.post(
-          'http://localhost:3000/api/roadmap/create',
+          '/roadmap/create',
           submittedData,
           {
             headers: {

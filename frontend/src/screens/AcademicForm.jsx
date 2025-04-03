@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import { BookOpen, ArrowRight } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import axios from 'axios';
+import axios from '../lib/axios.js'
 
 const UniversalAcademicRoadmapForm = () => {
   const navigate = useNavigate();
@@ -127,7 +127,7 @@ const UniversalAcademicRoadmapForm = () => {
         }
 
         const response = await axios.post(
-          'http://localhost:3000/api/roadmap/create',
+          '/roadmap/create',
           submittedData,
           {
             headers: {

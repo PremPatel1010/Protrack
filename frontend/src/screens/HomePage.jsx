@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import axios from 'axios';
+import axios from '../lib/axios.js'
 import { motion } from 'framer-motion';
 import { BookOpen, Brain, Target, Trophy, ArrowRight } from 'lucide-react';
 import Loader from '../components/Loader';
@@ -144,7 +144,7 @@ function Home() {
           return;
         }
 
-        const response = await axios.get('http://localhost:3000/api/roadmap/user', {
+        const response = await axios.get('/roadmap/user', {
           headers: { Authorization: `Bearer ${token}` },
         });
 

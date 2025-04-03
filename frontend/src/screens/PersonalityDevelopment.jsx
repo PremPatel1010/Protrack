@@ -1,6 +1,6 @@
 import React, { useState, useEffect , useRef} from "react";
 import { useNavigate } from "react-router-dom";
-import axios from "axios";
+import axios from '../lib/axios.js'
 import {
   Calendar,
   BookOpen,
@@ -68,7 +68,7 @@ function PersonalityDevelopment() {
 
         console.log("Fetching with token:", token);
         const response = await axios.get(
-          "http://localhost:3000/api/roadmap/user?category=personality",
+          "/roadmap/user?category=personality",
           {
             headers: { Authorization: `Bearer ${token}` },
           }
@@ -181,7 +181,7 @@ function PersonalityDevelopment() {
     try {
       const token = localStorage.getItem("token");
       const response = await axios.get(
-        "http://localhost:3000/api/roadmap/user?category=personality",
+        "/roadmap/user?category=personality",
         {
           headers: { Authorization: `Bearer ${token}` },
         }
@@ -195,7 +195,7 @@ function PersonalityDevelopment() {
       // Find the index of the task in dailyTasks
       const taskIndex = tasks.findIndex((t) => t.id === taskId);
       await axios.patch(
-        `http://localhost:3000/api/roadmap/${personalityRoadmap.id}/task/${taskIndex}`,
+        `/roadmap/${personalityRoadmap.id}/task/${taskIndex}`,
         { completed: newCompletedStatus },
         { headers: { Authorization: `Bearer ${token}` } }
       );

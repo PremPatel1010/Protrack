@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom'; // Import useNavigate
 import { motion } from 'framer-motion';
 import { Mail, Lock, ArrowRight } from 'lucide-react';
-import axios from 'axios';
+import axios from '../lib/axios.js'
 
 function App() {
   const [formData, setFormData] = useState({
@@ -25,7 +25,7 @@ function App() {
     setError(''); // Clear previous errors
 
     try {
-      const response = await axios.post('http://localhost:3000/api/auth/login', formData);
+      const response = await axios.post('/auth/login', formData);
       const { token } = response.data;
 
       // Store token in localStorage

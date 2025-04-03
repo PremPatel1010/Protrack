@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
-import axios from "axios";
+import axios from '../lib/axios.js'
 import {
   Calendar,
   BookOpen,
@@ -90,7 +90,7 @@ function AcademicTask() {
         }
 
         const response = await axios.get(
-          "http://localhost:3000/api/roadmap/user?category=academic",
+          "/roadmap/user?category=academic",
           {
             headers: { Authorization: `Bearer ${token}` },
           }
@@ -200,7 +200,7 @@ function AcademicTask() {
     try {
       const token = localStorage.getItem("token");
       const response = await axios.get(
-        "http://localhost:3000/api/roadmap/user?category=academic",
+        "/roadmap/user?category=academic",
         {
           headers: { Authorization: `Bearer ${token}` },
         }
@@ -215,7 +215,7 @@ function AcademicTask() {
       const backendTaskId = taskId - 1;
 
       await axios.patch(
-        `http://localhost:3000/api/roadmap/${academicRoadmap.id}/task/${backendTaskId}`,
+        `/roadmap/${academicRoadmap.id}/task/${backendTaskId}`,
         { completed: newCompletedStatus },
         { headers: { Authorization: `Bearer ${token}` } }
       );

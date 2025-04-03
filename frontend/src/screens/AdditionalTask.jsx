@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
-import axios from "axios";
+import axios from '../lib/axios.js'
 import { Calendar, BookOpen, Video, Lightbulb, BarChart, CheckCircle, Circle } from "lucide-react";
 import { motion } from "framer-motion";
 import RoadmapNavigation from "../components/RoadmapNavigation";
@@ -32,7 +32,7 @@ function AdditionalTask() {
         }
 
         console.log('Fetching with token:', token);
-        const response = await axios.get('http://localhost:3000/api/roadmap/user?category=additional', {
+        const response = await axios.get('/roadmap/user?category=additional', {
           headers: { Authorization: `Bearer ${token}` },
         });
 
@@ -158,7 +158,7 @@ function AdditionalTask() {
 
     try {
       const token = localStorage.getItem('token');
-      const response = await axios.get('http://localhost:3000/api/roadmap/user?category=additional', {
+      const response = await axios.get('/roadmap/user?category=additional', {
         headers: { Authorization: `Bearer ${token}` },
       });
       const additionalRoadmap = response.data[0];
@@ -169,7 +169,7 @@ function AdditionalTask() {
 
       const backendTaskId = taskId - 1; // Adjust to zero-based index
       await axios.patch(
-        `http://localhost:3000/api/roadmap/${additionalRoadmap.id}/task/${backendTaskId}`,
+        `/roadmap/${additionalRoadmap.id}/task/${backendTaskId}`,
         { completed: newCompletedStatus },
         { headers: { Authorization: `Bearer ${token}` } }
       );

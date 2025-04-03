@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import axios from "axios";
+import axios from '../lib/axios.js'
 import { Calendar, BookOpen, Video, Lightbulb, BarChart, CheckCircle, Circle, ArrowRight, ArrowLeft } from "lucide-react";
 import { motion } from "framer-motion";
 import RoadmapNavigation from "../components/RoadmapNavigation";
@@ -36,7 +36,7 @@ function LongTermGoal() {
         }
 
         console.log('Fetching with token:', token);
-        const response = await axios.get('http://localhost:3000/api/roadmap/user?category=long-term', {
+        const response = await axios.get('/roadmap/user?category=long-term', {
           headers: { Authorization: `Bearer ${token}` },
         });
 
@@ -113,7 +113,7 @@ function LongTermGoal() {
 
     try {
       const token = localStorage.getItem('token');
-      const response = await axios.get('http://localhost:3000/api/roadmap/user?category=long-term', {
+      const response = await axios.get('/roadmap/user?category=long-term', {
         headers: { Authorization: `Bearer ${token}` },
       });
       const longTermRoadmap = response.data[0];
@@ -124,7 +124,7 @@ function LongTermGoal() {
 
       const backendGoalId = goalId - 1; // Adjust to zero-based index
       await axios.patch(
-        `http://localhost:3000/api/roadmap/${longTermRoadmap.id}/task/${backendGoalId}`,
+        `/roadmap/${longTermRoadmap.id}/task/${backendGoalId}`,
         { completed: newCompletedStatus },
         { headers: { Authorization: `Bearer ${token}` } }
       );
