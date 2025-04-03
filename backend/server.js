@@ -26,10 +26,7 @@ connectDB();
 app.use('/api/auth', authRoutes);
 app.use('/api/roadmap', roadmapRoutes);
 
-// Basic route for testing
-app.get('/', (req, res) => {
-  res.send('ProTrack Backend is running');
-});
+
 
 // Add this after all your API routes
 if (process.env.NODE_ENV === 'production') {
