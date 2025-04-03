@@ -13,8 +13,7 @@ dotenv.config();
 const app = express();
 
 // Add these right after imports
-const __filename = fileURLToPath(import.meta.url);
-const _dirname = path.dirname(__filename);
+const __dirname = path.resolve();
 // Middleware
 app.use(cors());
 app.use(express.json());
@@ -34,9 +33,9 @@ app.get('/', (req, res) => {
 
 // Add this after all your API routes
 if (process.env.NODE_ENV === 'production') {
-  app.use(express.static(path.join(_dirname, "/frontend/dist")));
+  app.use(express.static(path.join(__dirname, "frontend/dist")));
   app.get('*', (req, res) => {
-    res.sendFile(path.resolve(_dirname, "frontend", "dist",'index.html'));
+    res.sendFile(path.resolve(__dirname, "frontend", "dist",'index.html'));
   });
 }
 
